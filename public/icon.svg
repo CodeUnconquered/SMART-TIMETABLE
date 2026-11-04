@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0369a1" />
+      <stop offset="100%" stop-color="#082f49" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#grad)" />
+  <g filter="url(#shadow)">
+    <!-- Calendar & Clock Composite Icon -->
+    <rect x="116" y="140" width="280" height="256" rx="28" fill="#ffffff" fill-opacity="0.95" />
+    <path d="M116 140 H396 V208 H116 Z" fill="#0284c7" />
+    <!-- Calendar Binder rings -->
+    <rect x="176" y="112" width="20" height="56" rx="10" fill="#38bdf8" />
+    <rect x="316" y="112" width="20" height="56" rx="10" fill="#38bdf8" />
+    <!-- Clock circle badge -->
+    <circle cx="256" cy="296" r="64" fill="#f0f9ff" stroke="#0284c7" stroke-width="12" />
+    <path d="M256 256 V296 L284 310" stroke="#0369a1" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Notification Bell Accent -->
+    <circle cx="360" cy="180" r="28" fill="#f43f5e" />
+    <path d="M360 168 C355 168 351 172 351 177 V186 L347 190 H373 L369 186 V177 C369 172 365 168 360 168 Z" fill="#ffffff" />
+    <circle cx="360" cy="194" r="3" fill="#ffffff" />
+  </g>
+</svg>
