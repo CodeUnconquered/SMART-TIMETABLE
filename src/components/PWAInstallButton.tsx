@@ -50,12 +50,14 @@ export const PWAInstallButton: React.FC = () => {
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400">
-                <Smartphone className="w-5 h-5" />
-              </div>
+              <img 
+                src="/icon.svg" 
+                alt="Smart Remind" 
+                className="w-11 h-11 rounded-2xl object-contain shadow-md shadow-cyan-950/40 shrink-0" 
+              />
               <div>
-                <h3 className="text-base font-bold text-white">Install on Mobile Phone</h3>
-                <p className="text-xs text-slate-400">Add to your home screen for native offline access</p>
+                <h3 className="text-base font-bold text-white">Install Smart Remind</h3>
+                <p className="text-xs text-slate-400">Add to your home screen for native offline access & alarms</p>
               </div>
             </div>
 

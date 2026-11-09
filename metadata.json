@@ -2,5 +2,7 @@
   "name": "Smart Academic Timetable & Class Reminder",
   "description": "Intelligent academic schedule companion with automated reminders, audible alerts, offline timetable caching, timetable change synchronization, and PWA mobile installation.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

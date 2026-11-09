@@ -7,50 +7,107 @@ import {
   CheckCircle, 
   ArrowRight, 
   Volume2, 
-  Sparkles,
-  FileText,
-  AlertTriangle,
-  Layers,
-  ChevronRight
+  Sparkles, 
+  FileText, 
+  AlertTriangle, 
+  ChevronRight, 
+  BookOpen, 
+  Plus, 
+  CheckSquare, 
+  VolumeX,
+  User,
+  Info,
+  Phone
 } from 'lucide-react';
-import { TimetableEntry, UserProfile, NotificationPreferences } from '../types/timetable';
+import { TimetableEntry, UserProfile, NotificationPreferences, PersonalTask, SessionNote } from '../types/timetable';
 import { NavTab } from './Navbar';
 
 interface DashboardViewProps {
   timetable: TimetableEntry[];
+  tasks?: PersonalTask[];
+  notes?: SessionNote[];
   user: UserProfile;
   preferences: NotificationPreferences;
   onSelectCourse: (course: TimetableEntry) => void;
+  onSelectTask?: (task: PersonalTask) => void;
   onTriggerTestReminder: (course?: TimetableEntry) => void;
+  onOpenNoteModal?: (note?: SessionNote | null, courseCode?: string) => void;
+  onOpenTaskModal?: (task?: PersonalTask | null) => void;
   onNavigateTab: (tab: NavTab) => void;
 }
 
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export const DashboardView: React.FC<DashboardViewProps> = ({
   timetable,
+  tasks = [],
+  notes = [],
   user,
   preferences,
   onSelectCourse,
+  onSelectTask,
   onTriggerTestReminder,
+  onOpenNoteModal,
+  onOpenTaskModal,
   onNavigateTab
 }) => {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  const [showScheduleImage, setShowScheduleImage] = useState<boolean>(false);
 
-  // Keep live time ticking every 5 seconds
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 5000);
     return () => clearInterval(timer);
   }, []);
 
-  const currentDayIndex = currentTime.getDay(); // 0 is Sunday, 1 is Monday ... 5 is Friday
+  const currentDayIndex = currentTime.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+  const currentDayName = DAYS_OF_WEEK[currentDayIndex];
   const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+  const currentDateStr = currentTime.toISOString().split('T')[0];
 
-  // Active courses (not cancelled)
-  const activeTimetable = timetable.filter(c => !c.isCancelled);
+  // Active courses for today, taking occurrence overrides into account
+  const todaysClasses = timetable
+    .filter(course => {
+      // Check if course has an override specifically on today's date
+      const overrides = course.occurrenceOverrides || [];
+      const todayOverride = overrides.find(o => o.date === currentDateStr);
+      
+      // If cancelled today, exclude from active classes
+      if (todayOverride && todayOverride.status === 'cancelled') {
+        return false;
+      }
 
-  // Today's classes
-  const todaysClasses = activeTimetable
-    .filter(c => c.dayIndex === currentDayIndex)
+      // If scheduled day is today
+      if (course.day === currentDayName) {
+        return true;
+      }
+
+      // If rescheduled to today from another day
+      const rescheduledToToday = overrides.find(
+        o => o.status === 'rescheduled' && o.rescheduledDate === currentDateStr
+      );
+      return !!rescheduledToToday;
+    })
+    .map(course => {
+      // If rescheduled to today with new times, adapt display
+      const overrides = course.occurrenceOverrides || [];
+      const rescheduledToToday = overrides.find(
+        o => o.status === 'rescheduled' && o.rescheduledDate === currentDateStr
+      );
+      if (rescheduledToToday) {
+        return {
+          ...course,
+          startTime: rescheduledToToday.rescheduledStartTime || course.startTime,
+          endTime: rescheduledToToday.rescheduledEndTime || course.endTime,
+          timeDisplay: rescheduledToToday.rescheduledTimeDisplay || course.timeDisplay,
+          venue: rescheduledToToday.rescheduledVenue || course.venue
+        };
+      }
+      return course;
+    })
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+
+  // Today's tasks
+  const todaysTasks = tasks
+    .filter(t => t.date === currentDateStr || (t.recurring?.enabled && t.recurring.days.includes(currentDayName as any)))
     .sort((a, b) => a.startMinutes - b.startMinutes);
 
   // Find currently ongoing class
@@ -61,10 +118,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Find next upcoming class today
   const upcomingToday = todaysClasses.find(c => c.startMinutes > currentMinutes);
 
-  // If no more classes today, find first class on next scheduled day
+  // Next scheduled class (today or upcoming day)
   const nextScheduledClass = upcomingToday || (() => {
-    const sorted = [...activeTimetable].sort((a, b) => {
-      // sort by days ahead
+    const sorted = [...timetable].sort((a, b) => {
       const dayDiffA = (a.dayIndex - currentDayIndex + 7) % 7 || 7;
       const dayDiffB = (b.dayIndex - currentDayIndex + 7) % 7 || 7;
       if (dayDiffA !== dayDiffB) return dayDiffA - dayDiffB;
@@ -73,10 +129,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return sorted[0];
   })();
 
-  // Calculate remaining classes today
-  const remainingTodayCount = todaysClasses.filter(c => c.endMinutes > currentMinutes).length;
+  const currentHour = currentTime.getHours();
+  const timeGreeting = currentHour >= 5 && currentHour < 12 
+    ? 'Good morning! ☀️' 
+    : currentHour >= 12 && currentHour < 18 
+    ? 'Good afternoon! 👋' 
+    : 'Good evening! 🌙';
 
-  // Format today's date
   const dateFormatted = currentTime.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -93,366 +152,357 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in">
       
-      {/* 1. WELCOME & TIME ZONE BANNER */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 p-6 md:p-8 shadow-xl">
+      {/* 1. WELCOME & MOTIVATIONAL STATEMENT BANNER */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 p-6 md:p-8 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="text-xs font-mono text-cyan-400 flex items-center gap-2">
-              <span>{user.program}</span>
-              <span className="text-slate-600">/</span>
-              <span>{user.year} · {user.semester}</span>
-              <span className="text-slate-600">/</span>
-              <span>{preferences.timezone}</span>
+            <div className="text-xs font-mono text-cyan-400 font-semibold tracking-wide flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span>Smart Academic & Personal Productivity</span>
             </div>
             
             <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
-              Welcome back, {user.name.split(' ')[0]}
+              {timeGreeting}
             </h1>
             
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Your smart academic timetable is actively monitoring schedules. Next reminder is configured for{' '}
-              <strong className="text-cyan-300">{preferences.reminderIntervals.join(', ')} minutes</strong> before each session with audible chime alert.
+            <p className="text-base sm:text-lg font-semibold text-cyan-400">
+              Plan your day. Stay focused. Make every moment count.
+            </p>
+
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Your time, your plans, your progress — all in one place. <strong>Smart Remind</strong> is actively managing your schedule with automated background reminders and audible alarms.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
-            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-right">
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 font-mono text-right">
               <span className="text-[11px] text-slate-400 block">{dateFormatted}</span>
               <span className="text-xl font-bold text-cyan-400 block mt-0.5 tabular-nums">{timeFormatted}</span>
             </div>
 
             <button
               onClick={() => onTriggerTestReminder()}
-              className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-              title="Test the synthetic audible reminder chime"
+              className="px-4 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-950/40"
+              title="Test the ~10-second audible alarm sequence with dismiss controls"
             >
-              <Volume2 className="w-4 h-4 text-cyan-400" />
-              <span>Test Chime</span>
+              <Bell className="w-4 h-4 animate-bounce" />
+              <span>Test 10s Alarm</span>
             </button>
           </div>
         </div>
       </section>
 
-      {/* 2. NEXT UPCOMING / ONGOING CLASS HERO SPOTLIGHT */}
+      {/* 2. QUICK ACTION LAUNCHPAD */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button
+          onClick={() => onOpenTaskModal && onOpenTaskModal(null)}
+          className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500 hover:bg-slate-850 text-left transition-all cursor-pointer group"
+        >
+          <div className="w-8 h-8 rounded-xl bg-purple-950 border border-purple-800 text-purple-400 flex items-center justify-center mb-2">
+            <Plus className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-bold text-white block">Add Personal Task</span>
+          <span className="text-[11px] text-slate-400 block">Study sessions, projects</span>
+        </button>
+
+        <button
+          onClick={() => onOpenNoteModal && onOpenNoteModal(null)}
+          className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500 hover:bg-slate-850 text-left transition-all cursor-pointer group"
+        >
+          <div className="w-8 h-8 rounded-xl bg-cyan-950 border border-cyan-800 text-cyan-400 flex items-center justify-center mb-2">
+            <BookOpen className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-bold text-white block">Take Session Note</span>
+          <span className="text-[11px] text-slate-400 block">Record lecture insights</span>
+        </button>
+
+        <button
+          onClick={() => onNavigateTab('notes')}
+          className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500 hover:bg-slate-850 text-left transition-all cursor-pointer group"
+        >
+          <div className="w-8 h-8 rounded-xl bg-emerald-950 border border-emerald-800 text-emerald-400 flex items-center justify-center mb-2">
+            <FileText className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-bold text-white block">Notes & Materials</span>
+          <span className="text-[11px] text-slate-400 block">{notes.length} notes & docs stored</span>
+        </button>
+
+        <button
+          onClick={() => onNavigateTab('timetable')}
+          className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500 hover:bg-slate-850 text-left transition-all cursor-pointer group"
+        >
+          <div className="w-8 h-8 rounded-xl bg-amber-950 border border-amber-800 text-amber-400 flex items-center justify-center mb-2">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-bold text-white block">7-Day Schedule</span>
+          <span className="text-[11px] text-slate-400 block">Sunday to Saturday</span>
+        </button>
+      </section>
+
+      {/* 3. NEXT UPCOMING / ONGOING CLASS HERO SPOTLIGHT */}
       <section aria-labelledby="next-class-title">
         <div className="flex items-center justify-between mb-3">
           <h2 id="next-class-title" className="text-base font-bold text-white flex items-center gap-2">
             <Clock className="w-4 h-4 text-cyan-400" />
-            <span>{ongoingClass ? 'Class in Progress Now' : 'Next Scheduled Session'}</span>
+            <span>{ongoingClass ? 'Ongoing Session Right Now' : 'Next Scheduled Session'}</span>
           </h2>
           <span className="text-xs font-mono text-slate-400">
-            {ongoingClass ? 'Active Attendance' : 'Smart Reminder Armed'}
+            {ongoingClass ? 'Active Session' : nextScheduledClass ? `${nextScheduledClass.day}` : 'Schedule Clear'}
           </span>
         </div>
 
         {ongoingClass ? (
-          <div className="rounded-2xl border border-emerald-500/50 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 p-6 shadow-xl relative overflow-hidden">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="relative overflow-hidden rounded-3xl bg-emerald-950/30 border-2 border-emerald-500/70 p-6 shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span className="font-bold">IN PROGRESS NOW · CONCLUDES IN {ongoingClass.endMinutes - currentMinutes} MIN</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white">
-                  {ongoingClass.courseCode}: {ongoingClass.courseName}
-                </h3>
-                <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-300">
-                  <span className="flex items-center gap-1.5 text-cyan-300">
-                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                    Venue: {ongoingClass.venue} ({ongoingClass.building})
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                    In Progress · Ends at {ongoingClass.endTime}
                   </span>
-                  <span>·</span>
-                  <span>Time: {ongoingClass.timeDisplay}</span>
-                  <span>·</span>
-                  <span>Lecturer: {ongoingClass.lecturer}</span>
                 </div>
-              </div>
-
-              <button
-                onClick={() => onSelectCourse(ongoingClass)}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors flex items-center gap-2 shrink-0 cursor-pointer shadow-md"
-              >
-                <span>View Course Notes</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ) : nextScheduledClass ? (
-          <div className="rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/30 via-slate-900 to-slate-900 p-6 shadow-xl relative overflow-hidden">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                  <span>
-                    UPCOMING: {nextScheduledClass.day.toUpperCase()} · {nextScheduledClass.timeDisplay}
-                  </span>
-                  {nextScheduledClass.dayIndex === currentDayIndex && (
-                    <span className="text-emerald-400 font-bold">
-                      (Starts in {nextScheduledClass.startMinutes - currentMinutes} mins)
-                    </span>
-                  )}
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-black font-mono text-emerald-300">{ongoingClass.courseCode}</span>
+                  <span className="text-xl font-bold text-white">{ongoingClass.courseName}</span>
                 </div>
-                
-                <h3 className="text-2xl font-bold text-white">
-                  {nextScheduledClass.courseCode}: {nextScheduledClass.courseName}
-                </h3>
-
-                <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-300">
-                  <span className="flex items-center gap-1.5 text-cyan-300">
-                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                    Venue: {nextScheduledClass.venue} ({nextScheduledClass.building})
+                <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-300 pt-1">
+                  <span className="flex items-center gap-1.5 text-white">
+                    <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                    <strong>{ongoingClass.venue}</strong>
                   </span>
-                  <span>·</span>
-                  <span>Instructor: {nextScheduledClass.lecturer}</span>
-                  <span>·</span>
-                  <span className="text-slate-400">Alerts set for 30m, 15m, 5m</span>
+                  <span className="flex items-center gap-1.5 flex-wrap">
+                    <span>Lecturer: {ongoingClass.lecturer}</span>
+                    {ongoingClass.lecturerPhone && (
+                      <a 
+                        href={`tel:${ongoingClass.lecturerPhone}`} 
+                        className="text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1 font-mono text-[11px]"
+                        title="Call Lecturer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Phone className="w-2.5 h-2.5" />
+                        <span>{ongoingClass.lecturerPhone}</span>
+                      </a>
+                    )}
+                  </span>
+                  <span>Type: {ongoingClass.classType}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                {onOpenNoteModal && (
+                  <button
+                    onClick={() => onOpenNoteModal(null, ongoingClass.courseCode)}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Take Session Note</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => onSelectCourse(ongoingClass)}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 cursor-pointer"
+                >
+                  View Syllabus
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : nextScheduledClass ? (
+          <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-xl hover:border-cyan-500/60 transition-all">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-cyan-950 border border-cyan-800 text-cyan-400 text-xs font-mono font-bold">
+                    {nextScheduledClass.day} {nextScheduledClass.timeDisplay}
+                  </span>
+                  {nextScheduledClass.day === currentDayName && (
+                    <span className="text-xs font-mono text-amber-400">
+                      Starts in {Math.max(0, nextScheduledClass.startMinutes - currentMinutes)} minutes
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-black font-mono text-cyan-400">{nextScheduledClass.courseCode}</span>
+                  <span className="text-xl font-bold text-white">{nextScheduledClass.courseName}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400 pt-1">
+                  <span className="flex items-center gap-1.5 text-slate-200">
+                    <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                    {nextScheduledClass.venue}
+                  </span>
+                  <span className="flex items-center gap-1.5 flex-wrap">
+                    <span>Lecturer: {nextScheduledClass.lecturer}</span>
+                    {nextScheduledClass.lecturerPhone && (
+                      <a 
+                        href={`tel:${nextScheduledClass.lecturerPhone}`} 
+                        className="text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1 font-mono text-[11px]"
+                        title="Call Lecturer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Phone className="w-2.5 h-2.5" />
+                        <span>{nextScheduledClass.lecturerPhone}</span>
+                      </a>
+                    )}
+                  </span>
+                  <span>Track: {nextScheduledClass.domainLabel}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 shrink-0">
                 <button
                   onClick={() => onTriggerTestReminder(nextScheduledClass)}
-                  className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-medium transition-colors flex items-center gap-2 cursor-pointer"
-                  title="Simulate prompt reminder alert"
+                  className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                  title="Test alarm alert for this session"
                 >
-                  <Bell className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Simulate Alert</span>
+                  <Volume2 className="w-4 h-4 text-cyan-400" />
+                  <span>Alarm Test</span>
                 </button>
-
                 <button
                   onClick={() => onSelectCourse(nextScheduledClass)}
-                  className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-md"
+                  className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/60 cursor-pointer"
                 >
-                  <span>Syllabus & Info</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <span>Details</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="p-8 rounded-2xl border border-slate-800 bg-slate-900/60 text-center text-slate-400 text-sm">
-            No upcoming classes scheduled. Check your full weekly timetable.
+          <div className="rounded-3xl bg-slate-900 border border-slate-800 p-8 text-center text-slate-400">
+            <CheckCircle className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-200">All lectures completed for today</p>
+            <p className="text-xs text-slate-400 mt-1">Review your personal tasks or notes for upcoming modules.</p>
           </div>
         )}
       </section>
 
-      {/* 3. QUICK STATS SUMMARY CHIPS */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm">
-          <span className="text-xs text-slate-400 font-mono block">Classes Today</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-white font-mono tabular-nums">{todaysClasses.length}</span>
-            <span className="text-xs text-cyan-400 font-mono">Sessions</span>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm">
-          <span className="text-xs text-slate-400 font-mono block">Remaining Today</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-emerald-400 font-mono tabular-nums">{remainingTodayCount}</span>
-            <span className="text-xs text-slate-400 font-mono">Pending</span>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm">
-          <span className="text-xs text-slate-400 font-mono block">Weekly Workload</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-white font-mono tabular-nums">28h</span>
-            <span className="text-xs text-purple-400 font-mono">12 Modules</span>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm">
-          <span className="text-xs text-slate-400 font-mono block">Primary Facilities</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-cyan-300 font-mono tabular-nums">3</span>
-            <span className="text-xs text-slate-400 font-mono">LBB/SPD/ECA</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. TODAY'S SCHEDULE TIMELINE */}
-      <section aria-labelledby="today-schedule-title" className="space-y-4">
-        <div className="flex items-center justify-between">
+      {/* 4. TODAY'S UNIFIED TIMELINE (CLASSES + TASKS) */}
+      <section aria-labelledby="today-timeline-title">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 id="today-schedule-title" className="text-lg font-bold text-white">
-              Today's Classes ({currentTime.toLocaleDateString('en-US', { weekday: 'long' })})
+            <h2 id="today-timeline-title" className="text-base font-bold text-white flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-cyan-400" />
+              <span>Today's Complete Schedule ({currentDayName})</span>
             </h2>
-            <p className="text-xs text-slate-400">All lectures and laboratory practicals scheduled for this date</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {todaysClasses.length} university lectures & {todaysTasks.length} personal tasks
+            </p>
           </div>
           <button
             onClick={() => onNavigateTab('timetable')}
-            className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 cursor-pointer"
+            className="text-xs font-mono text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
           >
-            Full Weekly View
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>Full 7-Day Timetable</span>
+            <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {todaysClasses.length === 0 ? (
-          <div className="p-8 rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 text-center space-y-2">
-            <Calendar className="w-8 h-8 text-slate-600 mx-auto" />
-            <h3 className="text-sm font-semibold text-slate-300">No lectures scheduled for today</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Use this time for coursework, code revisions in interactive Python, or lab assignments.
-            </p>
+        {todaysClasses.length === 0 && todaysTasks.length === 0 ? (
+          <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center text-slate-400">
+            <p className="text-xs font-mono">No lectures or tasks scheduled for {currentDayName}.</p>
+            <button
+              onClick={() => onOpenTaskModal && onOpenTaskModal(null)}
+              className="mt-3 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg inline-flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Schedule Study Session</span>
+            </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {todaysClasses.map((item) => {
-              const isPast = currentMinutes >= item.endMinutes;
-              const isNow = currentMinutes >= item.startMinutes && currentMinutes < item.endMinutes;
+          <div className="space-y-3">
+            {/* Render Official Courses */}
+            {todaysClasses.map(course => {
+              const isPast = course.endMinutes <= currentMinutes;
+              const isNow = currentMinutes >= course.startMinutes && currentMinutes < course.endMinutes;
 
               return (
                 <div
-                  key={item.id}
-                  onClick={() => onSelectCourse(item)}
-                  className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                  key={course.id}
+                  onClick={() => onSelectCourse(course)}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                     isNow
-                      ? 'bg-slate-900 border-cyan-500 shadow-md shadow-cyan-950/40'
+                      ? 'bg-emerald-950/20 border-emerald-500 shadow-lg'
                       : isPast
-                      ? 'bg-slate-900/50 border-slate-800 opacity-60'
-                      : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                      ? 'bg-slate-950/40 border-slate-850 opacity-60'
+                      : 'bg-slate-900 border-slate-800 hover:border-cyan-500'
                   }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="font-bold text-cyan-400">{item.courseCode}</span>
-                      <span className="text-slate-400">{item.classType}</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-extrabold text-cyan-400">{course.courseCode}</span>
+                      <span className="text-xs text-slate-400">· {course.classType}</span>
+                      {isNow && (
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
+                          NOW
+                        </span>
+                      )}
                     </div>
-
-                    <h4 className="text-base font-bold text-white leading-snug">
-                      {item.courseName}
-                    </h4>
-
-                    <div className="space-y-1 text-xs font-mono text-slate-300 pt-1">
-                      <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-white">{course.courseName}</h4>
+                    <div className="flex items-center gap-3 text-xs font-mono text-slate-400 pt-0.5">
+                      <span className="flex items-center gap-1 text-slate-200">
                         <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>{item.timeDisplay}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                        <span className="text-cyan-300">{item.venue} · {item.building}</span>
-                      </div>
+                        {course.timeDisplay}
+                      </span>
+                      <span className="flex items-center gap-1 text-slate-200">
+                        <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                        {course.venue}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                    <span className="text-slate-400 text-[11px] font-mono">{item.lecturer}</span>
-                    <span className="text-cyan-400 font-medium flex items-center gap-1">
-                      Details <ChevronRight className="w-3.5 h-3.5" />
-                    </span>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTriggerTestReminder(course);
+                      }}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
+                      title="Trigger 10s Alarm for this class"
+                    >
+                      <Bell className="w-4 h-4" />
+                    </button>
+                    <ChevronRight className="w-5 h-5 text-slate-600" />
                   </div>
-
-                  {isNow && (
-                    <div className="absolute top-0 right-0 px-2.5 py-0.5 rounded-bl-lg bg-cyan-600 text-[10px] font-bold text-white uppercase tracking-wider">
-                      In Session
-                    </div>
-                  )}
                 </div>
               );
             })}
+
+            {/* Render Personal Tasks */}
+            {todaysTasks.map(task => (
+              <div
+                key={task.id}
+                onClick={() => onSelectTask && onSelectTask(task)}
+                className="p-4 rounded-2xl bg-purple-950/20 border border-purple-800/50 hover:border-purple-400 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] uppercase font-bold text-purple-300">
+                      PERSONAL TASK · {task.category}
+                    </span>
+                    <span className="text-[10px] px-1.5 rounded bg-purple-900/60 text-purple-200 font-mono">
+                      {task.priority}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white">{task.title}</h4>
+                  <div className="flex items-center gap-3 text-xs font-mono text-slate-400 pt-0.5">
+                    <span className="flex items-center gap-1 text-slate-200">
+                      <Clock className="w-3.5 h-3.5 text-purple-400" />
+                      {task.startTime} - {task.endTime}
+                    </span>
+                    {task.location && (
+                      <span className="flex items-center gap-1 text-slate-200">
+                        <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                        {task.location}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <ChevronRight className="w-5 h-5 text-slate-600 shrink-0 self-end sm:self-center" />
+              </div>
+            ))}
           </div>
         )}
-      </section>
-
-      {/* 5. VERIFIED TIMETABLE SOURCE PREVIEW DRAWER */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <FileText className="w-4 h-4 text-cyan-400" />
-              <span>Official Department Schedule Source Document</span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Verified computer science faculty timetable image loaded from university records.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowScheduleImage(!showScheduleImage)}
-            className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold transition-colors cursor-pointer self-start sm:self-auto"
-          >
-            {showScheduleImage ? 'Hide Source Image' : 'View Verified Image'}
-          </button>
-        </div>
-
-        {showScheduleImage && (
-          <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-950 p-2 animate-in fade-in">
-            <img 
-              src="/public/assets/aistudio/image_04514670.png" 
-              alt="Official BCS Computer Science Academic Timetable" 
-              className="w-full max-h-[500px] object-contain rounded-lg mx-auto"
-            />
-            <div className="p-2 text-center text-[11px] font-mono text-slate-400">
-              Department of Computer Science & Informatics · Verified Timetable Grid
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* 6. CAMPUS LABORATORY & INFRASTRUCTURE DIRECTORY */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Layers className="w-4 h-4 text-cyan-400" />
-              <span>Allocated Facilities & Laboratory Hubs</span>
-            </h2>
-            <p className="text-xs text-slate-400">Official lecture theatres and computer laboratories for BCS Year 3</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          
-          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs font-bold text-cyan-300 px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800">
-                LBB 016
-              </span>
-              <span className="text-[11px] font-mono text-emerald-400">Ground Floor</span>
-            </div>
-            <h3 className="font-bold text-white text-sm">Systems & Algorithms Computer Lab</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Equipped with 60 high-performance workstations for Automata Theory, Python Interactive Programming, Java, and Algorithms computing.
-            </p>
-            <div className="pt-2 text-[11px] font-mono text-slate-400 border-t border-slate-800">
-              Main Science Quad · Wing A
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs font-bold text-amber-300 px-2 py-0.5 rounded bg-amber-950 border border-amber-800">
-                LBB 011
-              </span>
-              <span className="text-[11px] font-mono text-emerald-400">Ground Floor</span>
-            </div>
-            <h3 className="font-bold text-white text-sm">Networking & Analytics Facility</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Equipped with Cisco enterprise rack switch units and dual displays for Computer Networks, Network Programming, and Data Analysis.
-            </p>
-            <div className="pt-2 text-[11px] font-mono text-slate-400 border-t border-slate-800">
-              Main Science Quad · Wing B
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs font-bold text-purple-300 px-2 py-0.5 rounded bg-purple-950 border border-purple-800">
-                ECA 301 / SPD 004
-              </span>
-              <span className="text-[11px] font-mono text-purple-400">Level 3 / Ground</span>
-            </div>
-            <h3 className="font-bold text-white text-sm">Engineering Amphitheatre & Studios</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Tiered audio-visual auditorium optimized for Software Engineering symposia and Digital Signal Processing (DSP) lectures.
-            </p>
-            <div className="pt-2 text-[11px] font-mono text-slate-400 border-t border-slate-800">
-              Engineering Complex & SPD
-            </div>
-          </div>
-
-        </div>
       </section>
 
     </div>

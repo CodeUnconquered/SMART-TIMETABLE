@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Smart Academic Timetable & Class Reminder",
-  "short_name": "ClassRemind",
-  "description": "Intelligent academic schedule companion with automated reminders, audible alerts, and offline access.",
+  "name": "Smart Remind",
+  "short_name": "SmartRemind",
+  "description": "Intelligent academic timetable and personal productivity assistant with automated class reminders, audible alarms, and offline access.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -11,6 +11,12 @@
   "theme_color": "#0284c7",
   "categories": ["education", "productivity", "utilities"],
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",

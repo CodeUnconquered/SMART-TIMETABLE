@@ -3,7 +3,7 @@
     {
       "id": "bcs-315",
       "courseCode": "BCS 315",
-      "courseName": "Automata Theory",
+      "courseName": "Automata Theory & Computability",
       "lecturer": "Dr. Anthony Mutua",
       "lecturerEmail": "a.mutua@university.ac.ke",
       "day": "Monday",
@@ -27,7 +27,11 @@
         "Formal Grammars",
         "JFLAP Simulator"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 712 345 678",
+      "instructions": "Bring JFLAP simulator on laptop",
+      "occurrenceOverrides": [],
+      "lastUpdated": "2026-11-09T10:11:33.530Z"
     },
     {
       "id": "bcs-354",
@@ -56,7 +60,8 @@
         "ADC/DAC Transducers",
         "LabVIEW"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 722 890 123"
     },
     {
       "id": "bcs-360",
@@ -86,7 +91,8 @@
         "Jupyter",
         "Git"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 733 456 789"
     },
     {
       "id": "bcs-314",
@@ -116,7 +122,8 @@
         "Redis",
         "ACID Engine"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 711 234 567"
     },
     {
       "id": "bcs-361",
@@ -146,7 +153,8 @@
         "Matplotlib",
         "Seaborn"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 720 345 678"
     },
     {
       "id": "bcs-311",
@@ -176,7 +184,8 @@
         "CI/CD Pipelines",
         "GitFlow"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 725 678 901"
     },
     {
       "id": "bcs-312",
@@ -205,7 +214,8 @@
         "Dynamic Programming",
         "Graph Theory"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 715 890 123"
     },
     {
       "id": "bcs-366",
@@ -235,7 +245,8 @@
         "Maven",
         "Multithreading"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 728 901 234"
     },
     {
       "id": "bcs-352",
@@ -264,7 +275,8 @@
         "Filter Design",
         "Z-Transform"
       ],
-      "studentGroup": "BSc. CS Year 3 (Elective Track)"
+      "studentGroup": "BSc. CS Year 3 (Elective Track)",
+      "lecturerPhone": "+254 735 123 456"
     },
     {
       "id": "bcs-374",
@@ -294,7 +306,8 @@
         "Offline Sync",
         "REST APIs"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 718 234 567"
     },
     {
       "id": "bcs-313",
@@ -324,7 +337,8 @@
         "BGP/OSPF",
         "Subnetting"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 724 567 890"
     },
     {
       "id": "bcs-370",
@@ -354,10 +368,24 @@
         "gRPC",
         "Epoll Multiplexing"
       ],
-      "studentGroup": "BSc. CS Year 3"
+      "studentGroup": "BSc. CS Year 3",
+      "lecturerPhone": "+254 729 678 901"
     }
   ],
   "changes": [
+    {
+      "id": "chg-1794219093530",
+      "entryId": "bcs-315",
+      "courseCode": "BCS 315",
+      "courseName": "Automata Theory & Computability",
+      "changeType": "rescheduled",
+      "previousDetails": "Monday 7:00 AM - 10:00 AM at LBB 016",
+      "newDetails": "Monday 7:00 AM - 10:00 AM at LBB 016",
+      "reason": "Academic schedule refinement",
+      "timestamp": "2026-11-09T10:11:33.530Z",
+      "performedBy": "Academic Timetable Administrator",
+      "notifiedStudentsCount": 142
+    },
     {
       "id": "chg-init",
       "entryId": "bcs-315",
@@ -372,6 +400,26 @@
     }
   ],
   "notifications": [
+    {
+      "id": "notif-change-1794219093530",
+      "title": "TIMETABLE UPDATE: BCS 315",
+      "message": "Automata Theory & Computability rescheduled to Monday 7:00 AM - 10:00 AM at LBB 016.",
+      "courseCode": "BCS 315",
+      "venue": "LBB 016",
+      "timeSlot": "7:00 AM - 10:00 AM",
+      "type": "rescheduled",
+      "timestamp": "2026-11-09T10:11:33.530Z",
+      "read": false
+    },
+    {
+      "id": "notif-task-1794217496116",
+      "title": "PERSONAL TASK SCHEDULED: Operating Systems Assignment 2",
+      "message": "Scheduled for 2026-11-10 at 14:00 (ASSIGNMENT).",
+      "taskId": "task-mw92rsc4",
+      "type": "task",
+      "timestamp": "2026-11-09T09:44:56.116Z",
+      "read": false
+    },
     {
       "id": "notif-welcome",
       "title": "Timetable Synchronized",
@@ -389,6 +437,161 @@
       15,
       5
     ],
-    "soundEnabled": true
-  }
+    "soundEnabled": true,
+    "theme": "dark"
+  },
+  "tasks": [
+    {
+      "id": "task-01",
+      "title": "Algorithms Revision & Problem Sets",
+      "description": "Review Dynamic Programming recurrence relations and solve 3 LeetCode graph problems before Thursday lecture.",
+      "category": "study",
+      "priority": "urgent",
+      "status": "pending",
+      "date": "2026-11-09",
+      "startTime": "15:00",
+      "endTime": "17:30",
+      "startMinutes": 900,
+      "endMinutes": 1050,
+      "location": "University Library - 3rd Floor Quiet Zone",
+      "reminderIntervals": [
+        30,
+        15,
+        0
+      ],
+      "recurring": {
+        "enabled": true,
+        "days": [
+          "Sunday"
+        ]
+      },
+      "courseId": "bcs-312",
+      "createdAt": "2026-11-09T09:44:25.300Z",
+      "updatedAt": "2026-11-09T10:11:38.380Z"
+    },
+    {
+      "id": "task-02",
+      "title": "Software Engineering Sprint Meeting",
+      "description": "Sprint planning and GitHub pull request reviews with project group members.",
+      "category": "project",
+      "priority": "medium",
+      "status": "in_progress",
+      "date": "2026-11-09",
+      "startTime": "18:00",
+      "endTime": "19:30",
+      "startMinutes": 1080,
+      "endMinutes": 1170,
+      "location": "Student Innovation Hub / Google Meet",
+      "reminderIntervals": [
+        15,
+        5
+      ],
+      "recurring": {
+        "enabled": true,
+        "days": [
+          "Tuesday"
+        ]
+      },
+      "courseId": "bcs-311",
+      "createdAt": "2026-11-09T09:44:25.300Z",
+      "updatedAt": "2026-11-09T09:44:25.300Z"
+    },
+    {
+      "id": "task-03",
+      "title": "Saturday Gym & Cardio Session",
+      "description": "Full body workout and 5km recovery run to recharge.",
+      "category": "exercise",
+      "priority": "low",
+      "status": "pending",
+      "date": "2026-11-09",
+      "startTime": "08:00",
+      "endTime": "09:30",
+      "startMinutes": 480,
+      "endMinutes": 570,
+      "location": "Campus Sports Center Gym",
+      "reminderIntervals": [
+        30
+      ],
+      "recurring": {
+        "enabled": true,
+        "days": [
+          "Saturday"
+        ]
+      },
+      "createdAt": "2026-11-09T09:44:25.300Z",
+      "updatedAt": "2026-11-09T09:44:25.300Z"
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-01",
+      "timetableEntryId": "bcs-315",
+      "courseCode": "BCS 315",
+      "sessionDate": "2026-11-09",
+      "sessionTimeSlot": "7:00 AM - 10:00 AM",
+      "venue": "LBB 016",
+      "title": "Automata Theory: Deterministic Finite Automata (DFA) Equivalences",
+      "content": "Discussed state transition diagrams, 5-tuple formal definition (Q, Sigma, delta, q0, F). Proved that every NFA can be converted to an equivalent DFA via subset construction with exponential worst-case bound 2^|Q|.",
+      "keyConcepts": [
+        "5-tuple formal definition of DFA",
+        "Powerset / Subset Construction algorithm",
+        "Pumping Lemma for regular languages",
+        "Minimization of DFAs using Myhill-Nerode theorem"
+      ],
+      "lecturerExplanations": [
+        "Dr. Mutua emphasized that empty transitions (epsilon) do not increase computational power",
+        "Question 2 in midterm will test NFA-to-DFA state conversion tables"
+      ],
+      "assignments": [
+        "Complete Problem Set 2 on JFLAP by next Monday 7:00 AM"
+      ],
+      "questions": [
+        "How to optimize DFA minimization when unreachable states are detected?"
+      ],
+      "researchItems": [
+        "Research generalized transition graphs and state elimination methods"
+      ],
+      "summary": "Mastered subset construction converting NFA to DFA. Completed proofs on regular grammar equivalences.",
+      "documents": [
+        {
+          "id": "doc-01",
+          "name": "Automata_Finite_State_Machines_Syllabus.pdf",
+          "type": "pdf",
+          "mimeType": "application/pdf",
+          "size": 1420000,
+          "sizeFormatted": "1.4 MB",
+          "url": "data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrp/Og0MTGCjQgMCBvYmoKPDwgL0xlbmd0aCA1IDAgUiAvRmlsdGVyIC9GbGF0ZURlY29kZSA+PgpzdHJlYW0KeAErVIhVCPFWyMwtyEktUUhJrEwtSi3WS85Pz0zRUDCwUDAwMTAEMjS5uACW3w3fCmVuZHN0cmVhbQplbmRvYmoK",
+          "uploadedAt": "2026-11-09T09:44:25.300Z"
+        }
+      ],
+      "tags": [
+        "Automata",
+        "Theory",
+        "DFA",
+        "Exam-Prep"
+      ],
+      "createdAt": "2026-11-09T09:44:25.300Z",
+      "updatedAt": "2026-11-09T09:44:25.300Z"
+    }
+  ],
+  "customFields": [
+    {
+      "id": "cf-zoom",
+      "name": "meeting_link",
+      "label": "Online Class / Meeting Link",
+      "type": "url",
+      "appliesTo": "all",
+      "required": false,
+      "defaultValue": ""
+    },
+    {
+      "id": "cf-attendance",
+      "name": "attendance_weight",
+      "label": "Attendance Weighting (%)",
+      "type": "number",
+      "appliesTo": "course",
+      "required": false,
+      "defaultValue": 10
+    }
+  ]
 }

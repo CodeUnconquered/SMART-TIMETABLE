@@ -3,19 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Smart Academic Timetable & Class Reminder</title>
-    <meta name="description" content="Intelligent academic schedule companion with automated reminders, audible alerts, offline timetable caching, timetable change synchronization, and PWA mobile installation." />
+    <title>Smart Remind — Academic & Personal Productivity Management System</title>
+    <meta name="description" content="Intelligent academic timetable and personal productivity companion with automated class reminders, 10-second audible alarms, offline caching, and PWA mobile installation." />
     
     <!-- Open Graph / Facebook -->
-    <meta property="og:title" content="Smart Academic Timetable & Class Reminder" />
-    <meta property="og:description" content="Intelligent academic schedule companion with automated reminders, audible alerts, offline timetable caching, timetable change synchronization, and PWA mobile installation." />
+    <meta property="og:title" content="Smart Remind — Academic & Personal Productivity Management System" />
+    <meta property="og:description" content="Intelligent academic timetable companion with automated reminders, audible alarms, session notes, personal tasks, and offline access." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/icon-512.png" />
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Smart Academic Timetable & Class Reminder" />
-    <meta name="twitter:description" content="Intelligent academic schedule companion with automated reminders, audible alerts, and offline access." />
+    <meta name="twitter:title" content="Smart Remind — Academic & Personal Productivity System" />
+    <meta name="twitter:description" content="Intelligent academic schedule companion with automated reminders, audible alarms, session notes, and offline access." />
     <meta name="twitter:image" content="/icon-512.png" />
 
     <!-- PWA & Mobile Web Capabilities -->
@@ -23,10 +23,10 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="ClassRemind" />
+    <meta name="apple-mobile-web-app-title" content="SmartRemind" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
 
     <!-- Typography: Plus Jakarta Sans for Display/Prose & JetBrains Mono for Tabular Timetables -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -41,6 +41,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then((reg) => {
+            reg.update();
             console.log('[PWA] Service Worker registered:', reg.scope);
           }).catch((err) => {
             console.warn('[PWA] Service Worker registration failed:', err);

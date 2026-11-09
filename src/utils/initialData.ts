@@ -1,4 +1,11 @@
-import { TimetableEntry, UserProfile, NotificationPreferences } from '../types/timetable';
+import { 
+  TimetableEntry, 
+  UserProfile, 
+  NotificationPreferences, 
+  PersonalTask, 
+  SessionNote, 
+  CustomFieldDefinition 
+} from '../types/timetable';
 
 export const INITIAL_TIMETABLE: TimetableEntry[] = [
   {
@@ -6,7 +13,7 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     courseCode: 'BCS 315',
     courseName: 'Automata Theory',
     lecturer: 'Dr. Anthony Mutua',
-    lecturerEmail: 'a.mutua@university.ac.ke',
+    lecturerPhone: '+254 712 345 678',
     day: 'Monday',
     dayIndex: 1,
     startTime: '07:00',
@@ -23,14 +30,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'cyan',
     description: 'Deterministic and non-deterministic finite automata, regular languages, context-free grammars, pushdown automata, Turing machines, and decidability.',
     techStack: ['Turing Machines', 'State Automata', 'Formal Grammars', 'JFLAP Simulator'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Bring your laptop with JFLAP installed. Mandatory assignment due on week 4.'
   },
   {
     id: 'bcs-354',
     courseCode: 'BCS 354',
     courseName: 'Measurement and Instrumentation',
     lecturer: 'Eng. Peter Kamau',
-    lecturerEmail: 'p.kamau@university.ac.ke',
+    lecturerPhone: '+254 722 890 123',
     day: 'Monday',
     dayIndex: 1,
     startTime: '10:00',
@@ -47,14 +56,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'amber',
     description: 'Sensor transducers, digital data acquisition (DAQ), signal conditioning, analog-to-digital conversion, and automated electronic instrumentation.',
     techStack: ['Oscilloscopes', 'Microcontrollers', 'ADC/DAC Transducers', 'LabVIEW'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Lab safety coats required. Collect your sensor breadboard kit at the technician station.'
   },
   {
     id: 'bcs-360',
     courseCode: 'BCS 360',
     courseName: 'Interactive Programming (Python)',
     lecturer: 'Dr. Grace Wanjiku',
-    lecturerEmail: 'g.wanjiku@university.ac.ke',
+    lecturerPhone: '+254 733 456 789',
     day: 'Tuesday',
     dayIndex: 2,
     startTime: '10:00',
@@ -71,14 +82,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'emerald',
     description: 'Event-driven programming paradigms, asynchronous I/O, graphical user interface design with PyQt/Tkinter, and rapid system prototyping in modern Python 3.',
     techStack: ['Python 3.12', 'AsyncIO', 'PyQt6', 'Jupyter', 'Git'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Ensure your Python virtual environment has PyQt6 and asyncio dependencies installed.'
   },
   {
     id: 'bcs-314',
     courseCode: 'BCS 314',
     courseName: 'Database Systems II',
     lecturer: 'Prof. James Ochieng',
-    lecturerEmail: 'j.ochieng@university.ac.ke',
+    lecturerPhone: '+254 711 234 567',
     day: 'Tuesday',
     dayIndex: 2,
     startTime: '12:00',
@@ -95,14 +108,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'purple',
     description: 'Relational query optimization, index trees (B+ Trees), concurrency control, ACID transaction isolation levels, crash recovery, and distributed databases.',
     techStack: ['PostgreSQL', 'Query Execution Plans', 'MongoDB', 'Redis', 'ACID Engine'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'PostgreSQL instance credentials available on course portal. Bring lecture notes.'
   },
   {
     id: 'bcs-361',
     courseCode: 'BCS 361',
     courseName: 'Data Analysis Techniques',
     lecturer: 'Dr. Silas Kiprop',
-    lecturerEmail: 's.kiprop@university.ac.ke',
+    lecturerPhone: '+254 720 345 678',
     day: 'Wednesday',
     dayIndex: 3,
     startTime: '07:00',
@@ -119,14 +134,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'purple',
     description: 'Statistical modeling, exploratory data analysis (EDA), regression techniques, dimension reduction, and pipeline computing using Python scientific stack.',
     techStack: ['Pandas', 'NumPy', 'SciPy', 'Matplotlib', 'Seaborn'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Weekly dataset downloads posted every Tuesday evening on student portal.'
   },
   {
     id: 'bcs-311',
     courseCode: 'BCS 311',
     courseName: 'Software Engineering',
     lecturer: 'Dr. Mary Otieno',
-    lecturerEmail: 'm.otieno@university.ac.ke',
+    lecturerPhone: '+254 725 678 901',
     day: 'Wednesday',
     dayIndex: 3,
     startTime: '14:00',
@@ -143,14 +160,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'emerald',
     description: 'Agile development methodologies, microservices architecture, clean code principles, UML system design, CI/CD automated deployment, and verification cycles.',
     techStack: ['Agile / Scrum', 'Docker', 'UML Architecture', 'CI/CD Pipelines', 'GitFlow'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Group semester project sprint reviews take place in the last 45 minutes of each lecture.'
   },
   {
     id: 'bcs-312',
     courseCode: 'BCS 312',
     courseName: 'Design & Analysis of Algorithms',
     lecturer: 'Prof. Evans Mwangi',
-    lecturerEmail: 'e.mwangi@university.ac.ke',
+    lecturerPhone: '+254 715 890 123',
     day: 'Thursday',
     dayIndex: 4,
     startTime: '07:00',
@@ -167,14 +186,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'cyan',
     description: 'Asymptotic notation, divide-and-conquer recurrences, dynamic programming, greedy algorithms, graph traversals (Dijkstra, Bellman-Ford), and NP-completeness.',
     techStack: ['C++20', 'Big-O Analysis', 'Dynamic Programming', 'Graph Theory'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Algorithm design problem sets must be typeset in LaTeX or cleanly handwritten.'
   },
   {
     id: 'bcs-366',
     courseCode: 'BCS 366',
     courseName: 'Advanced Java Programming',
     lecturer: 'Dr. Dennis Njoroge',
-    lecturerEmail: 'd.njoroge@university.ac.ke',
+    lecturerPhone: '+254 728 901 234',
     day: 'Thursday',
     dayIndex: 4,
     startTime: '10:00',
@@ -191,14 +212,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'emerald',
     description: 'JVM internals and garbage collection, Java concurrency, Spring Boot framework, reflection, generics, and RESTful enterprise web services.',
     techStack: ['Java 21', 'Spring Boot 3', 'JVM Profiler', 'Maven', 'Multithreading'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'JDK 21 LTS and IntelliJ IDEA Community or Ultimate required for practical sessions.'
   },
   {
     id: 'bcs-352',
     courseCode: 'BCS 352',
     courseName: 'Digital Signal Processing I',
     lecturer: 'Eng. Francis Kibet',
-    lecturerEmail: 'f.kibet@university.ac.ke',
+    lecturerPhone: '+254 735 123 456',
     day: 'Thursday',
     dayIndex: 4,
     startTime: '11:00',
@@ -215,14 +238,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'rose',
     description: 'Discrete-time signals and LTI systems, Z-transform, Discrete Fourier Transform (DFT), Fast Fourier Transform (FFT), FIR and IIR digital filter design.',
     techStack: ['MATLAB', 'FFT Algorithms', 'Filter Design', 'Z-Transform'],
-    studentGroup: 'BSc. CS Year 3 (Elective Track)'
+    studentGroup: 'BSc. CS Year 3 (Elective Track)',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'MATLAB campus license available through University IT portal.'
   },
   {
     id: 'bcs-374',
     courseCode: 'BCS 374',
     courseName: 'Mobile Computing',
     lecturer: 'Dr. Kevin Maina',
-    lecturerEmail: 'k.maina@university.ac.ke',
+    lecturerPhone: '+254 718 234 567',
     day: 'Thursday',
     dayIndex: 4,
     startTime: '16:00',
@@ -239,14 +264,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'indigo',
     description: 'Mobile operating system internals, Android Jetpack & PWA integration, background workers, local persistence, sensor telemetry, and offline-first design.',
     techStack: ['Android Jetpack', 'PWA / Service Workers', 'Kotlin', 'Offline Sync', 'REST APIs'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Bring an Android test device with USB debugging enabled for APK deployment tests.'
   },
   {
     id: 'bcs-313',
     courseCode: 'BCS 313',
     courseName: 'Computer Networks',
     lecturer: 'Dr. Bernard Koech',
-    lecturerEmail: 'b.koech@university.ac.ke',
+    lecturerPhone: '+254 724 567 890',
     day: 'Friday',
     dayIndex: 5,
     startTime: '09:00',
@@ -263,14 +290,16 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'amber',
     description: 'OSI and TCP/IP protocol stacks, IPv4/IPv6 subnetting, routing protocols (OSPF, BGP), transport layer flow control, and network security foundations.',
     techStack: ['Wireshark', 'Packet Tracer', 'TCP/IP', 'BGP/OSPF', 'Subnetting'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Packet Tracer lab files must be submitted to the LMS by 11:59 PM every Friday.'
   },
   {
     id: 'bcs-370',
     courseCode: 'BCS 370',
     courseName: 'Network Programming',
     lecturer: 'Dr. Bernard Koech',
-    lecturerEmail: 'b.koech@university.ac.ke',
+    lecturerPhone: '+254 729 678 901',
     day: 'Friday',
     dayIndex: 5,
     startTime: '11:00',
@@ -287,7 +316,175 @@ export const INITIAL_TIMETABLE: TimetableEntry[] = [
     colorTheme: 'amber',
     description: 'POSIX socket programming in C and Python, non-blocking I/O multiplexing (select/epoll), TLS/SSL encryption, remote procedure calls, and protocol design.',
     techStack: ['POSIX Sockets', 'Python Sockets', 'TLS/SSL', 'gRPC', 'Epoll Multiplexing'],
-    studentGroup: 'BSc. CS Year 3'
+    studentGroup: 'BSc. CS Year 3',
+    academicPeriod: 'Semester II, 2026/2027',
+    instructions: 'Linux terminal environment required. WSL or native Ubuntu recommended.'
+  }
+];
+
+export const INITIAL_TASKS: PersonalTask[] = [
+  {
+    id: 'task-01',
+    title: 'Sunday Algorithms Revision & Problem Sets',
+    description: 'Review Dynamic Programming recurrence relations and solve 3 LeetCode medium graph traversal problems before Thursday lecture.',
+    category: 'study',
+    priority: 'high',
+    status: 'pending',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '15:00',
+    endTime: '17:30',
+    startMinutes: 15 * 60,
+    endMinutes: 17 * 60 + 30,
+    location: 'University Library - 3rd Floor Quiet Zone',
+    reminderIntervals: [30, 10],
+    recurring: {
+      enabled: true,
+      days: ['Sunday']
+    },
+    courseId: 'bcs-312',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'task-02',
+    title: 'Weekly Software Engineering Sprint Meeting',
+    description: 'Sprint planning and GitHub pull request reviews with project group members for BCS 311 microservices backend.',
+    category: 'project',
+    priority: 'medium',
+    status: 'in_progress',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '18:00',
+    endTime: '19:30',
+    startMinutes: 18 * 60,
+    endMinutes: 19 * 60 + 30,
+    location: 'Student Innovation Hub / Google Meet',
+    reminderIntervals: [15, 5],
+    recurring: {
+      enabled: true,
+      days: ['Tuesday']
+    },
+    courseId: 'bcs-311',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'task-03',
+    title: 'Saturday Gym & Cardio Session',
+    description: 'Full body workout and 5km recovery run to recharge after Friday network labs.',
+    category: 'exercise',
+    priority: 'low',
+    status: 'pending',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '08:00',
+    endTime: '09:30',
+    startMinutes: 8 * 60,
+    endMinutes: 9 * 60 + 30,
+    location: 'Campus Sports Center Gym',
+    reminderIntervals: [30],
+    recurring: {
+      enabled: true,
+      days: ['Saturday']
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+export const INITIAL_NOTES: SessionNote[] = [
+  {
+    id: 'note-01',
+    timetableEntryId: 'bcs-315',
+    courseCode: 'BCS 315',
+    title: 'Automata Theory: Deterministic Finite Automata (DFA) Equivalences',
+    content: 'Discussed state transition diagrams, 5-tuple formal definition (Q, Sigma, delta, q0, F). Proved that every NFA can be converted to an equivalent DFA via subset construction with exponential worst-case bound 2^|Q|.',
+    keyConcepts: [
+      '5-tuple formal definition of DFA',
+      'Powerset / Subset Construction algorithm',
+      'Pumping Lemma for regular languages',
+      'Minimization of DFAs using Myhill-Nerode theorem'
+    ],
+    lecturerHighlights: [
+      'Dr. Mutua emphasized that empty transitions (epsilon) do not increase computational power',
+      'Question 2 in midterm will test NFA-to-DFA state conversion tables'
+    ],
+    assignments: [
+      'Complete Problem Set 2 on JFLAP by next Monday 7:00 AM'
+    ],
+    questions: [
+      'How to optimize DFA minimization when unreachable states are detected?'
+    ],
+    references: [
+      'Introduction to the Theory of Computation by Michael Sipser (Chapter 1)',
+      'https://jflap.org/tutorial/'
+    ],
+    tags: ['Automata', 'Theory', 'DFA', 'Exam-Prep'],
+    date: new Date().toISOString().split('T')[0],
+    timeSlot: '7:00 AM - 10:00 AM',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'note-02',
+    timetableEntryId: 'bcs-314',
+    courseCode: 'BCS 314',
+    title: 'Database Systems II: B+ Tree Indexing & Concurrency Control',
+    content: 'Covered disk storage hierarchy, page blocking factors, and why B+ trees dominate DBMS index structures over binary search trees. All data records reside at leaf nodes which form a linked list for range scans.',
+    keyConcepts: [
+      'B+ Tree fan-out and depth reduction',
+      'ACID Concurrency: 2-Phase Locking (2PL)',
+      'Write-Ahead Logging (WAL) and ARIES recovery',
+      'PostgreSQL EXPLAIN ANALYZE index scans'
+    ],
+    lecturerHighlights: [
+      'Prof. Ochieng showed real database execution plans comparing Seq Scan vs Bitmap Index Scan',
+      'Deadlocks are resolved using wait-for graph cycle detection'
+    ],
+    assignments: [
+      'Tune 5 slow SQL queries on the sample 1M-row e-commerce dataset'
+    ],
+    questions: [
+      'When is an Index-Only Scan faster than a Clustered Index Scan?'
+    ],
+    references: [
+      'Database System Concepts by Silberschatz, Korth, Sudarshan',
+      'PostgreSQL Documentation on Index Types'
+    ],
+    tags: ['Database', 'PostgreSQL', 'Indexing', 'B+Tree'],
+    date: new Date().toISOString().split('T')[0],
+    timeSlot: '12:00 PM - 2:00 PM',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+export const INITIAL_CUSTOM_FIELDS: CustomFieldDefinition[] = [
+  {
+    id: 'cf-zoom',
+    name: 'meeting_link',
+    label: 'Online Class / Meeting Link',
+    type: 'url',
+    appliesTo: 'all',
+    required: false,
+    defaultValue: ''
+  },
+  {
+    id: 'cf-attendance',
+    name: 'attendance_weight',
+    label: 'Attendance Weighting (%)',
+    type: 'number',
+    appliesTo: 'course',
+    required: false,
+    defaultValue: 10
+  },
+  {
+    id: 'cf-study-mode',
+    name: 'study_mode',
+    label: 'Study Modality',
+    type: 'dropdown',
+    appliesTo: 'all',
+    required: false,
+    options: ['In-Person Campus', 'Virtual Live', 'Hybrid', 'Self-Paced Library'],
+    defaultValue: 'In-Person Campus'
   }
 ];
 
@@ -320,7 +517,8 @@ export const DEFAULT_PREFERENCES: NotificationPreferences = {
   vibrationEnabled: true,
   browserNotificationsEnabled: true,
   reminderIntervals: [30, 15, 5],
-  soundType: 'chime',
+  soundType: 'alarm',
+  alarmDurationSeconds: 10,
   timezone: 'Africa/Nairobi',
   autoQuietHours: false,
   quietStart: '22:00',

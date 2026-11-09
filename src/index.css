@@ -39,6 +39,122 @@
   padding-top: env(safe-area-inset-top, 0.5rem);
 }
 
+/* GLOBAL THEME SYSTEM: LIGHT & DARK TOKENS */
+html.light {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+/* Light Theme Global Overrides */
+html.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light nav.mobile-bottom-bar,
+html.light nav[role="navigation"],
+html.light .mobile-bottom-bar {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+html.light .bg-slate-950\/80 {
+  background-color: rgba(248, 250, 252, 0.9) !important;
+}
+html.light .bg-slate-950\/60 {
+  background-color: rgba(241, 245, 249, 0.8) !important;
+}
+html.light .bg-slate-900 {
+  background-color: #ffffff !important;
+}
+html.light .bg-slate-900\/95,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+html.light .bg-slate-850 {
+  background-color: #f1f5f9 !important;
+}
+html.light .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+}
+html.light .hover\:bg-slate-800:hover {
+  background-color: #e2e8f0 !important;
+}
+html.light .hover\:bg-slate-750:hover {
+  background-color: #cbd5e1 !important;
+}
+
+html.light .border-slate-800 {
+  border-color: #e2e8f0 !important;
+}
+html.light .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .text-white:not([class*="bg-cyan"]):not([class*="bg-purple"]):not([class*="bg-rose"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-amber"]):not([class*="bg-gradient"]) {
+  color: #0f172a !important;
+}
+html.light .text-slate-100 {
+  color: #0f172a !important;
+}
+html.light .text-slate-200 {
+  color: #1e293b !important;
+}
+html.light .text-slate-300 {
+  color: #334155 !important;
+}
+html.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Inputs & Form controls in Light theme */
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light textarea,
+html.light select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+html.light input:not([type="checkbox"]):not([type="radio"]):focus,
+html.light textarea:focus,
+html.light select:focus {
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 1px #0284c7 !important;
+}
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Dialog & Modal styling in Light theme */
+html.light .fixed.inset-0.bg-slate-950\/80 {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+}
+html.light [role="dialog"] .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15) !important;
+}
+
+/* Welcome banner in Light theme */
+html.light .bg-gradient-to-br.from-slate-900.via-slate-900.to-slate-950 {
+  background-image: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06) !important;
+}
+
 /* Print Styles for Physical Schedule Printing */
 @media print {
   body {
