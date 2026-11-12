@@ -38,7 +38,8 @@ import {
   GlobalThemeMode,
   PersonalTask,
   ActivityPriority,
-  ActivityStatus
+  ActivityStatus,
+  UserProfile
 } from '../types/timetable';
 import { detectConflicts } from '../utils/storage';
 import { DynamicFieldRenderer } from './DynamicFieldRenderer';
@@ -74,6 +75,8 @@ interface AdminPanelProps {
   onDuplicateCourse: (courseId: string) => Promise<boolean>;
   onBroadcastAnnouncement: (title: string, message: string) => Promise<void>;
   onAddCustomField?: (field: Omit<CustomFieldDefinition, 'id'>) => Promise<boolean>;
+  user?: UserProfile;
+  onSwitchRole?: () => void;
 }
 
 const ALL_DAYS: DayOfWeek[] = [
@@ -92,6 +95,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   tasks = [],
   customFields = [],
   currentTheme = 'dark',
+  user,
+  onSwitchRole,
   onUpdateGlobalTheme,
   onAddCourse,
   onEditCourse,
@@ -586,6 +591,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
               Full administrative authority to publish courses with free-text venues, cancel specific class occurrences temporarily, reschedule dates, or permanently delete courses everywhere.
             </p>
+
+            {/* Admin Permissions Status Banner */}
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 text-xs font-mono shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="font-bold">Admin Permissions Granted:</span>
+                <span className="text-emerald-200">Full Course, Task & Schedule Editing Active</span>
+              </div>
+
+              {onSwitchRole && user?.role !== 'admin' && (
+                <button
+                  type="button"
+                  onClick={onSwitchRole}
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Activate Admin Mode</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">

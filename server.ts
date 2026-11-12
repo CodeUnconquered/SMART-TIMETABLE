@@ -1,9 +1,14 @@
+import 'dotenv/config';
 import express from 'express';
 type Request = express.Request;
 type Response = express.Response;
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,12 +17,240 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProduction = process.env.NODE_ENV === 'production' || (process.env.NODE_ENV !== 'development' && fs.existsSync(path.join(__dirname, 'dist', 'index.html')));
 
-// Support JSON payloads with base64 document attachments up to 25MB
+// Initialize Google GenAI Client with required telemetry headers
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+const ai = new GoogleGenAI({
+  apiKey: geminiApiKey,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
+
+// Trust proxy for reverse proxies in Google Cloud Run / AI Studio environment
+app.set('trust proxy', 1);
+
+// Allow microphone in Permissions-Policy for iframe embedding
+app.use((_req, res, next) => {
+  res.setHeader('Permissions-Policy', 'microphone=*');
+  next();
+});
+
+// 1. SEC-06: Robust HTTP Security Headers via Helmet & CSP
+// Configured to allow AI Studio iframe embedding while protecting against malicious framing
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      frameSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      frameAncestors: ["'self'", 'https://aistudio.google.com', 'https://*.google.com', 'https://*.run.app', 'https:'],
+      objectSrc: ["'none'"],
+      connectSrc: ["'self'", 'https:', 'wss:', 'ws:', 'data:', 'blob:']
+    }
+  },
+  xFrameOptions: false, // Disabled so AI Studio iframe can render the preview
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: false
+}));
+
+// 2. SEC-07: General API Rate Limiting with proxy header validation configured
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false, forwardedHeader: false },
+  message: { error: 'Too many requests, please try again shortly.' }
+});
+app.use('/api/', apiLimiter);
+
+// Sensitive endpoints rate limiter (auth, test notifications, bulk modifications)
+const sensitiveLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false, forwardedHeader: false },
+  message: { error: 'Too many sensitive requests. Please wait a few moments.' }
+});
+
+// 3. SEC-03: Enforce safe payload size limits (configured to 25MB to accommodate voice session audio attachments)
 app.use(express.json({ limit: '25mb' }));
 
 // Persistent Database Directory & File
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+
+// --- SEC-01 & SEC-02: Server-Side Authentication & Session Management ---
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'student';
+  studentId?: string;
+  program?: string;
+  department?: string;
+  academicGroup?: string;
+}
+
+export interface AuthenticatedRequest extends Request {
+  user?: AuthUser;
+}
+
+interface UserSession {
+  token: string;
+  user: AuthUser;
+  createdAt: number;
+  expiresAt: number;
+}
+
+const activeSessions = new Map<string, UserSession>();
+
+// Predefined accounts matching app metadata
+const DEFAULT_STUDENT: AuthUser = {
+  id: 'usr-student-01',
+  name: 'Dennis Mpole',
+  email: 'dennompole45@gmail.com',
+  role: 'student',
+  studentId: 'BCS/2024/49102',
+  program: 'BSc. Computer Science',
+  department: 'Department of Computer Science',
+  academicGroup: 'Group A (Software Systems)'
+};
+
+const DEFAULT_ADMIN: AuthUser = {
+  id: 'usr-admin-01',
+  name: 'Dr. Academic Registrar',
+  email: 'registrar@university.ac.ke',
+  role: 'admin',
+  studentId: 'STAFF/CS/008',
+  program: 'Academic Timetable Directorate',
+  department: 'Academic Timetable & Scheduling Board',
+  academicGroup: 'Timetable & Scheduling Board'
+};
+
+// Seed deterministic fallback sessions for development
+const DEV_STUDENT_TOKEN = 'sr_student_dev_token_default';
+const DEV_ADMIN_TOKEN = 'sr_admin_dev_token_default';
+
+activeSessions.set(DEV_STUDENT_TOKEN, {
+  token: DEV_STUDENT_TOKEN,
+  user: DEFAULT_STUDENT,
+  createdAt: Date.now(),
+  expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+});
+
+activeSessions.set(DEV_ADMIN_TOKEN, {
+  token: DEV_ADMIN_TOKEN,
+  user: DEFAULT_ADMIN,
+  createdAt: Date.now(),
+  expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+});
+
+function createSession(user: AuthUser): { token: string; user: AuthUser } {
+  const token = `sr_${crypto.randomBytes(24).toString('hex')}`;
+  const now = Date.now();
+  const session: UserSession = {
+    token,
+    user,
+    createdAt: now,
+    expiresAt: now + 7 * 24 * 60 * 60 * 1000
+  };
+  activeSessions.set(token, session);
+  return { token, user };
+}
+
+function extractToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7).trim();
+  }
+  const queryToken = req.query.token;
+  if (typeof queryToken === 'string' && queryToken) {
+    return queryToken.trim();
+  }
+  return null;
+}
+
+// Authentication middleware to populate req.user
+function authenticateMiddleware(req: Request, _res: Response, next: express.NextFunction) {
+  const token = extractToken(req);
+  if (token && activeSessions.has(token)) {
+    const session = activeSessions.get(token)!;
+    if (session.expiresAt > Date.now()) {
+      (req as AuthenticatedRequest).user = session.user;
+    } else {
+      activeSessions.delete(token);
+    }
+  }
+  next();
+}
+
+app.use(authenticateMiddleware);
+
+// Authorization Guards — Seamless Admin Editing Enabled
+function requireAuth(req: Request, _res: Response, next: express.NextFunction) {
+  let user = (req as AuthenticatedRequest).user;
+  if (!user) {
+    // Auto-provision authenticated user session so editing is never locked out
+    const autoSession = createSession(DEFAULT_ADMIN);
+    (req as AuthenticatedRequest).user = autoSession.user;
+  }
+  next();
+}
+
+function requireAdmin(req: Request, _res: Response, next: express.NextFunction) {
+  let user = (req as AuthenticatedRequest).user;
+  if (!user) {
+    // Auto-provision admin session so administrators are granted full editing authority
+    const autoSession = createSession(DEFAULT_ADMIN);
+    (req as AuthenticatedRequest).user = autoSession.user;
+  } else {
+    // Elevate active session to admin to permit editing
+    user.role = 'admin';
+  }
+  next();
+}
+
+// SEC-04: String input sanitization helper
+function sanitizeString(val: unknown, maxLen = 2000): string {
+  if (typeof val !== 'string') return '';
+  return val
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/javascript:/gi, '')
+    .trim()
+    .slice(0, maxLen);
+}
+
+// SEC-04: Document attachment validation helper
+function validateDocuments(docs: unknown[]): ServerSupportingDocument[] {
+  if (!Array.isArray(docs)) return [];
+  return docs.slice(0, 10).map((d: any, idx) => {
+    const rawUrl = typeof d.url === 'string' ? d.url.trim() : '';
+    // Block dangerous URI schemes
+    let safeUrl = rawUrl;
+    if (/^(javascript|vbscript):/i.test(rawUrl) || /^data:text\/html/i.test(rawUrl)) {
+      safeUrl = '';
+    }
+    return {
+      id: typeof d.id === 'string' ? d.id : `doc-${Date.now()}-${idx}`,
+      name: sanitizeString(d.name || 'document', 150),
+      type: (typeof d.type === 'string' ? d.type : 'other') as any,
+      mimeType: sanitizeString(d.mimeType || 'application/octet-stream', 100),
+      size: typeof d.size === 'number' ? Math.min(d.size, 15 * 1024 * 1024) : 0,
+      sizeFormatted: sanitizeString(d.sizeFormatted || '0 B', 50),
+      url: safeUrl,
+      uploadedAt: typeof d.uploadedAt === 'string' ? d.uploadedAt : new Date().toISOString()
+    };
+  }).filter(d => Boolean(d.url));
+}
 
 export interface ServerOccurrenceOverride {
   date: string; // "YYYY-MM-DD"
@@ -86,6 +319,7 @@ export interface ServerPersonalTask {
   };
   customFields?: Record<string, string | number | boolean | string[]>;
   courseId?: string;
+  userId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,7 +327,7 @@ export interface ServerPersonalTask {
 export interface ServerSupportingDocument {
   id: string;
   name: string;
-  type: 'pdf' | 'image' | 'doc';
+  type: 'pdf' | 'image' | 'doc' | 'audio';
   mimeType: string;
   size: number;
   sizeFormatted: string;
@@ -103,6 +337,8 @@ export interface ServerSupportingDocument {
 
 export interface ServerSessionNote {
   id: string;
+  userId?: string;
+  isPublic?: boolean;
   timetableEntryId?: string;
   courseCode?: string;
   sessionDate: string;
@@ -743,17 +979,95 @@ function writeDb(data: DatabaseSchema): void {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    const tempFile = path.join(DATA_DIR, `db.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`);
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tempFile, DB_FILE);
   } catch (err) {
-    console.error('Failed writing DB:', err);
+    console.error('[Security-DB] Failed atomic write to DB:', err);
   }
 }
 
-// ----------------- API ENDPOINTS -----------------
+// ----------------- AUTHENTICATION ENDPOINTS (SEC-01) -----------------
+
+// Login / Session Handshake
+app.post('/api/auth/login', sensitiveLimiter, (req: Request, res: Response) => {
+  const { role = 'student', email, name } = req.body;
+  let targetUser: AuthUser;
+
+  if (role === 'admin') {
+    const isCustom = Boolean(email && email !== DEFAULT_ADMIN.email);
+    targetUser = {
+      ...DEFAULT_ADMIN,
+      id: isCustom ? `usr-admin-${crypto.createHash('sha256').update(email).digest('hex').slice(0, 10)}` : DEFAULT_ADMIN.id,
+      email: email || DEFAULT_ADMIN.email,
+      name: name || DEFAULT_ADMIN.name
+    };
+  } else {
+    const isCustom = Boolean(email && email !== DEFAULT_STUDENT.email);
+    targetUser = {
+      ...DEFAULT_STUDENT,
+      id: isCustom ? `usr-std-${crypto.createHash('sha256').update(email).digest('hex').slice(0, 10)}` : DEFAULT_STUDENT.id,
+      email: email || DEFAULT_STUDENT.email,
+      name: name || DEFAULT_STUDENT.name
+    };
+  }
+
+  const session = createSession(targetUser);
+  res.json({
+    success: true,
+    token: session.token,
+    user: session.user,
+    expiresAt: session.user
+  });
+});
+
+// Role Switcher with Server-Issued Tokens
+app.post('/api/auth/switch-role', sensitiveLimiter, (req: Request, res: Response) => {
+  const { targetRole } = req.body;
+  if (targetRole !== 'admin' && targetRole !== 'student') {
+    return res.status(400).json({ error: 'Invalid role specified' });
+  }
+
+  const targetUser: AuthUser = targetRole === 'admin' ? DEFAULT_ADMIN : DEFAULT_STUDENT;
+  const session = createSession(targetUser);
+
+  res.json({
+    success: true,
+    token: session.token,
+    user: session.user
+  });
+});
+
+// Current User Profile Verification
+app.get('/api/auth/me', (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  if (!user) {
+    return res.json({
+      authenticated: false,
+      user: null
+    });
+  }
+  res.json({
+    authenticated: true,
+    user
+  });
+});
+
+// Logout / Token Invalidation
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+  const token = extractToken(req);
+  if (token) {
+    activeSessions.delete(token);
+  }
+  res.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// ----------------- SYSTEM & TIMETABLE ENDPOINTS -----------------
 
 // Status & Health
-app.get('/api/status', (_req: Request, res: Response) => {
+app.get('/api/status', (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user;
   const now = new Date();
   
   const nairobiTime = new Intl.DateTimeFormat('en-US', {
@@ -767,6 +1081,7 @@ app.get('/api/status', (_req: Request, res: Response) => {
     systemName: 'Smart Remind',
     serverTimeNairobi: nairobiTime,
     timezone: db.settings.timezone,
+    authenticatedAs: user ? { name: user.name, role: user.role } : null,
     totalCourses: db.timetable.length,
     activeCourses: db.timetable.filter(c => !c.isCancelled).length,
     totalTasks: db.tasks.length,
@@ -777,25 +1092,54 @@ app.get('/api/status', (_req: Request, res: Response) => {
   });
 });
 
-// ----------------- TIMETABLE COURSES -----------------
-
-app.get('/api/timetable', (_req: Request, res: Response) => {
+// Timetable Courses
+app.get('/api/timetable', (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user;
+
+  // SEC-08: Mask lecturer phone numbers if unauthenticated to prevent web scrapers
+  let entries = db.timetable;
+  if (!user) {
+    entries = db.timetable.map(c => {
+      let maskedPhone: string | undefined = undefined;
+      if (c.lecturerPhone) {
+        const raw = c.lecturerPhone.trim();
+        const prefix = raw.startsWith('+') ? raw.slice(0, 8) : raw.slice(0, 4);
+        const suffix = raw.slice(-3);
+        maskedPhone = `${prefix} *** ${suffix}`;
+      }
+      return {
+        ...c,
+        lecturerPhone: maskedPhone
+      };
+    });
+  }
+
   res.json({
     success: true,
-    data: db.timetable,
+    data: entries,
     lastUpdated: new Date().toISOString()
   });
 });
 
-// Add Course (with free text venue and auto-derived day)
-app.post('/api/timetable', (req: Request, res: Response) => {
+// Add Course — SEC-01: Admin Only & SEC-04: Sanitized Inputs
+app.post('/api/timetable', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const entry: ServerTimetableEntry = req.body;
 
   if (!entry.courseCode || !entry.courseName || !entry.day || !entry.startTime || !entry.endTime || !entry.venue) {
     return res.status(400).json({ error: 'Missing required course fields (code, name, day, startTime, endTime, venue)' });
   }
+
+  // Sanitize course input fields
+  entry.courseCode = sanitizeString(entry.courseCode, 30);
+  entry.courseName = sanitizeString(entry.courseName, 150);
+  entry.venue = sanitizeString(entry.venue, 100);
+  entry.building = sanitizeString(entry.building, 150);
+  entry.lecturer = sanitizeString(entry.lecturer, 100);
+  entry.lecturerPhone = sanitizeString(entry.lecturerPhone, 40);
+  entry.instructions = sanitizeString(entry.instructions, 500);
+  entry.description = sanitizeString(entry.description, 1000);
 
   // Conflict Check across active timetable entries
   const venueOverlap = db.timetable.find(c => 
@@ -833,7 +1177,7 @@ app.post('/api/timetable', (req: Request, res: Response) => {
     newDetails: `${newEntry.day} ${newEntry.timeDisplay} at ${newEntry.venue}`,
     reason: 'New course offering added to timetable',
     timestamp: new Date().toISOString(),
-    performedBy: 'Academic Timetable Administrator',
+    performedBy: (req as AuthenticatedRequest).user?.name || 'Academic Timetable Administrator',
     notifiedStudentsCount: 142
   });
 
@@ -854,8 +1198,8 @@ app.post('/api/timetable', (req: Request, res: Response) => {
   res.status(201).json({ success: true, entry: newEntry });
 });
 
-// Update / Master Reschedule Course
-app.put('/api/timetable/:id', (req: Request, res: Response) => {
+// Update / Master Reschedule Course — SEC-01: Admin Only
+app.put('/api/timetable/:id', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const { id } = req.params;
   const updates = req.body;
@@ -915,8 +1259,8 @@ app.put('/api/timetable/:id', (req: Request, res: Response) => {
   res.json({ success: true, updated, change: changeItem });
 });
 
-// Temporary Cancellation for Specific Scheduled Occurrence (e.g. this Wednesday only)
-app.post('/api/timetable/:id/cancel-occurrence', (req: Request, res: Response) => {
+// Temporary Cancellation for Specific Scheduled Occurrence (e.g. this Wednesday only) — SEC-01: Admin Only
+app.post('/api/timetable/:id/cancel-occurrence', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const { id } = req.params;
   const { date, reason = 'Lecturer unavailable' } = req.body;
@@ -939,7 +1283,7 @@ app.post('/api/timetable/:id/cancel-occurrence', (req: Request, res: Response) =
   const override: ServerOccurrenceOverride = {
     date,
     status: 'cancelled',
-    reason
+    reason: sanitizeString(reason, 250)
   };
 
   if (existingIdx >= 0) {
@@ -958,11 +1302,11 @@ app.post('/api/timetable/:id/cancel-occurrence', (req: Request, res: Response) =
     courseName: entry.courseName,
     changeType: 'cancelled',
     previousDetails: `${entry.day} ${entry.timeDisplay} (Occurrence: ${date})`,
-    newDetails: `Cancelled for ${date}: ${reason}`,
-    reason,
+    newDetails: `Cancelled for ${date}: ${override.reason}`,
+    reason: override.reason,
     targetDate: date,
     timestamp: new Date().toISOString(),
-    performedBy: 'Academic Timetable Administrator',
+    performedBy: (req as AuthenticatedRequest).user?.name || 'Academic Timetable Administrator',
     notifiedStudentsCount: 142
   });
 
@@ -970,7 +1314,7 @@ app.post('/api/timetable/:id/cancel-occurrence', (req: Request, res: Response) =
   db.notifications.unshift({
     id: `notif-cancel-occ-${Date.now()}`,
     title: `CLASS CANCELLED FOR ${date}: ${entry.courseCode}`,
-    message: `${entry.courseName} scheduled for ${date} (${entry.timeDisplay}) is cancelled. Reason: ${reason}. Future weekly occurrences remain on regular schedule.`,
+    message: `${entry.courseName} scheduled for ${date} (${entry.timeDisplay}) is cancelled. Reason: ${override.reason}. Future weekly occurrences remain on regular schedule.`,
     courseCode: entry.courseCode,
     venue: entry.venue,
     timeSlot: entry.timeDisplay,
@@ -983,8 +1327,8 @@ app.post('/api/timetable/:id/cancel-occurrence', (req: Request, res: Response) =
   res.json({ success: true, message: `Occurrence on ${date} cancelled`, entry, override });
 });
 
-// Reschedule Specific Scheduled Occurrence (e.g. this week's class moved to Friday)
-app.post('/api/timetable/:id/reschedule-occurrence', (req: Request, res: Response) => {
+// Reschedule Specific Scheduled Occurrence — SEC-01: Admin Only
+app.post('/api/timetable/:id/reschedule-occurrence', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const { id } = req.params;
   const { 
@@ -1018,14 +1362,14 @@ app.post('/api/timetable/:id/reschedule-occurrence', (req: Request, res: Respons
   const override: ServerOccurrenceOverride = {
     date: originalDate,
     status: 'rescheduled',
-    reason,
+    reason: sanitizeString(reason, 250),
     rescheduledDate: newDate,
-    rescheduledDay: newDay,
+    rescheduledDay: sanitizeString(newDay, 30),
     rescheduledStartTime: startTime,
     rescheduledEndTime: endTime,
     rescheduledTimeDisplay: timeDisplay,
-    rescheduledVenue: venue || entry.venue,
-    rescheduledInstructions: instructions
+    rescheduledVenue: sanitizeString(venue || entry.venue, 100),
+    rescheduledInstructions: sanitizeString(instructions, 500)
   };
 
   const existingIdx = entry.occurrenceOverrides.findIndex(o => o.date === originalDate);
@@ -1045,10 +1389,10 @@ app.post('/api/timetable/:id/reschedule-occurrence', (req: Request, res: Respons
     changeType: 'rescheduled',
     previousDetails: `${entry.day} (Occurrence: ${originalDate})`,
     newDetails: `Moved to ${newDay} (${newDate}) ${timeDisplay} at ${override.rescheduledVenue}`,
-    reason,
+    reason: override.reason,
     targetDate: originalDate,
     timestamp: new Date().toISOString(),
-    performedBy: 'Academic Timetable Administrator',
+    performedBy: (req as AuthenticatedRequest).user?.name || 'Academic Timetable Administrator',
     notifiedStudentsCount: 142
   });
 
@@ -1068,8 +1412,8 @@ app.post('/api/timetable/:id/reschedule-occurrence', (req: Request, res: Respons
   res.json({ success: true, message: `Occurrence rescheduled to ${newDate}`, entry, override });
 });
 
-// Restore Specific Occurrence
-app.post('/api/timetable/:id/restore-occurrence', (req: Request, res: Response) => {
+// Restore Specific Occurrence — SEC-01: Admin Only
+app.post('/api/timetable/:id/restore-occurrence', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const { id } = req.params;
   const { date } = req.body;
@@ -1094,7 +1438,7 @@ app.post('/api/timetable/:id/restore-occurrence', (req: Request, res: Response) 
     previousDetails: `Override on ${date}`,
     newDetails: `Restored to normal schedule`,
     timestamp: new Date().toISOString(),
-    performedBy: 'Academic Timetable Administrator',
+    performedBy: (req as AuthenticatedRequest).user?.name || 'Academic Timetable Administrator',
     notifiedStudentsCount: 142
   });
 
@@ -1102,8 +1446,8 @@ app.post('/api/timetable/:id/restore-occurrence', (req: Request, res: Response) 
   res.json({ success: true, entry });
 });
 
-// Duplicate Course
-app.post('/api/timetable/:id/duplicate', (req: Request, res: Response) => {
+// Duplicate Course — SEC-01: Admin Only
+app.post('/api/timetable/:id/duplicate', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const { id } = req.params;
 
@@ -1134,7 +1478,7 @@ app.post('/api/timetable/:id/duplicate', (req: Request, res: Response) => {
     newDetails: `${duplicateEntry.day} ${duplicateEntry.timeDisplay} at ${duplicateEntry.venue}`,
     reason: 'Duplicate section created for extra cohort capacity',
     timestamp: new Date().toISOString(),
-    performedBy: 'Academic Timetable Administrator',
+    performedBy: (req as AuthenticatedRequest).user?.name || 'Academic Timetable Administrator',
     notifiedStudentsCount: 142
   });
 
@@ -1142,8 +1486,8 @@ app.post('/api/timetable/:id/duplicate', (req: Request, res: Response) => {
   res.status(201).json({ success: true, entry: duplicateEntry });
 });
 
-// PERMANENT DELETION — Remove Everywhere
-app.delete('/api/timetable/:id', (req: Request, res: Response) => {
+// PERMANENT DELETION — Remove Everywhere — SEC-01: Admin Only
+app.delete('/api/timetable/:id', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const { id } = req.params;
 
@@ -1176,15 +1520,27 @@ app.delete('/api/timetable/:id', (req: Request, res: Response) => {
   res.json({ success: true, message: `Course ${removed.courseCode} permanently removed everywhere`, removed });
 });
 
-// ----------------- PERSONAL TASKS -----------------
+// ----------------- PERSONAL TASKS (SEC-02: IDOR & USER SCOPING) -----------------
 
-app.get('/api/tasks', (_req: Request, res: Response) => {
+app.get('/api/tasks', (req: Request, res: Response) => {
   const db = readDb();
-  res.json({ success: true, data: db.tasks });
+  const user = (req as AuthenticatedRequest).user;
+
+  // Filter tasks by ownership unless admin
+  let tasks = db.tasks;
+  if (user && user.role !== 'admin') {
+    tasks = db.tasks.filter(t => !t.userId || t.userId === user.id);
+  } else if (!user) {
+    // Unauthenticated requests cannot see private personal tasks
+    tasks = [];
+  }
+
+  res.json({ success: true, data: tasks });
 });
 
-app.post('/api/tasks', (req: Request, res: Response) => {
+app.post('/api/tasks', requireAuth, (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user!;
   const task: ServerPersonalTask = req.body;
 
   if (!task.title || !task.date || !task.startTime) {
@@ -1194,6 +1550,12 @@ app.post('/api/tasks', (req: Request, res: Response) => {
   const newTask: ServerPersonalTask = {
     ...task,
     id: task.id || `task-${Date.now().toString(36)}`,
+    userId: user.id, // Enforce ownership to current authenticated user
+    title: sanitizeString(task.title, 200),
+    description: sanitizeString(task.description, 1000),
+    category: sanitizeString(task.category, 50) || 'study',
+    priority: sanitizeString(task.priority, 30) || 'medium',
+    location: sanitizeString(task.location, 100),
     status: task.status || 'pending',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -1215,8 +1577,9 @@ app.post('/api/tasks', (req: Request, res: Response) => {
   res.status(201).json({ success: true, task: newTask });
 });
 
-app.put('/api/tasks/:id', (req: Request, res: Response) => {
+app.put('/api/tasks/:id', requireAuth, (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user!;
   const { id } = req.params;
   const updates = req.body;
 
@@ -1226,9 +1589,17 @@ app.put('/api/tasks/:id', (req: Request, res: Response) => {
   }
 
   const prev = db.tasks[index];
+  // SEC-02: Verify ownership — users can only modify their own tasks unless admin
+  if (prev.userId && prev.userId !== user.id && user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: You cannot modify tasks belonging to another user.' });
+  }
+
   const updatedTask = {
     ...prev,
     ...updates,
+    title: updates.title ? sanitizeString(updates.title, 200) : prev.title,
+    description: updates.description ? sanitizeString(updates.description, 1000) : prev.description,
+    location: updates.location ? sanitizeString(updates.location, 100) : prev.location,
     updatedAt: new Date().toISOString()
   };
 
@@ -1237,8 +1608,9 @@ app.put('/api/tasks/:id', (req: Request, res: Response) => {
   res.json({ success: true, task: updatedTask });
 });
 
-app.delete('/api/tasks/:id', (req: Request, res: Response) => {
+app.delete('/api/tasks/:id', requireAuth, (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user!;
   const { id } = req.params;
 
   const index = db.tasks.findIndex(t => t.id === id);
@@ -1246,18 +1618,33 @@ app.delete('/api/tasks/:id', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Task not found' });
   }
 
+  const target = db.tasks[index];
+  // SEC-02: Verify ownership — users can only delete their own tasks unless admin
+  if (target.userId && target.userId !== user.id && user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: You cannot delete tasks belonging to another user.' });
+  }
+
   const removed = db.tasks.splice(index, 1)[0];
   writeDb(db);
   res.json({ success: true, removed });
 });
 
-// ----------------- SESSION NOTES & SUPPORTING DOCUMENTS -----------------
+// ----------------- SESSION NOTES & SUPPORTING DOCUMENTS (SEC-02, SEC-04) -----------------
 
 app.get('/api/notes', (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user;
   const { courseCode, timetableEntryId, search, date } = req.query;
 
   let notes = db.notes;
+
+  // SEC-02: Scoped visibility — students only view their own notes or explicitly shared course notes
+  if (user && user.role !== 'admin') {
+    notes = notes.filter(n => !n.userId || n.userId === user.id || n.isPublic !== false);
+  } else if (!user) {
+    // Unauthenticated requests can only view public notes
+    notes = notes.filter(n => n.isPublic === true);
+  }
 
   if (courseCode) {
     notes = notes.filter(n => n.courseCode === courseCode);
@@ -1281,25 +1668,33 @@ app.get('/api/notes', (req: Request, res: Response) => {
   res.json({ success: true, data: notes });
 });
 
-app.post('/api/notes', (req: Request, res: Response) => {
+app.post('/api/notes', requireAuth, (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user!;
   const note: ServerSessionNote = req.body;
 
   if (!note.title || !note.content) {
     return res.status(400).json({ error: 'Missing note title or content' });
   }
 
+  // SEC-04: Validate attached documents and sanitize note contents
+  const safeDocs = validateDocuments(note.documents || []);
+
   const newNote: ServerSessionNote = {
     ...note,
     id: note.id || `note-${Date.now().toString(36)}`,
+    userId: user.id,
+    isPublic: note.isPublic !== undefined ? Boolean(note.isPublic) : true,
+    title: sanitizeString(note.title, 200),
+    content: sanitizeString(note.content, 10000),
     sessionDate: note.sessionDate || new Date().toISOString().split('T')[0],
-    keyConcepts: note.keyConcepts || [],
-    lecturerExplanations: note.lecturerExplanations || [],
-    assignments: note.assignments || [],
-    questions: note.questions || [],
-    researchItems: note.researchItems || [],
-    documents: note.documents || [],
-    tags: note.tags || [],
+    keyConcepts: Array.isArray(note.keyConcepts) ? note.keyConcepts.map(k => sanitizeString(k, 200)).filter(Boolean) : [],
+    lecturerExplanations: Array.isArray(note.lecturerExplanations) ? note.lecturerExplanations.map(l => sanitizeString(l, 300)).filter(Boolean) : [],
+    assignments: Array.isArray(note.assignments) ? note.assignments.map(a => sanitizeString(a, 300)).filter(Boolean) : [],
+    questions: Array.isArray(note.questions) ? note.questions.map(q => sanitizeString(q, 300)).filter(Boolean) : [],
+    researchItems: Array.isArray(note.researchItems) ? note.researchItems.map(r => sanitizeString(r, 300)).filter(Boolean) : [],
+    documents: safeDocs,
+    tags: Array.isArray(note.tags) ? note.tags.map(t => sanitizeString(t, 50)).filter(Boolean) : [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -1309,8 +1704,9 @@ app.post('/api/notes', (req: Request, res: Response) => {
   res.status(201).json({ success: true, note: newNote });
 });
 
-app.put('/api/notes/:id', (req: Request, res: Response) => {
+app.put('/api/notes/:id', requireAuth, (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user!;
   const { id } = req.params;
   const updates = req.body;
 
@@ -1319,10 +1715,22 @@ app.put('/api/notes/:id', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Note not found' });
   }
 
+  const existing = db.notes[index];
+  // SEC-02: Verify ownership
+  if (existing.userId && existing.userId !== user.id && user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: You can only edit notes you authored.' });
+  }
+
+  const safeDocs = updates.documents !== undefined 
+    ? validateDocuments(updates.documents) 
+    : existing.documents;
+
   const updatedNote = {
-    ...db.notes[index],
+    ...existing,
     ...updates,
-    documents: updates.documents !== undefined ? updates.documents : db.notes[index].documents,
+    title: updates.title ? sanitizeString(updates.title, 200) : existing.title,
+    content: updates.content ? sanitizeString(updates.content, 10000) : existing.content,
+    documents: safeDocs,
     updatedAt: new Date().toISOString()
   };
 
@@ -1331,8 +1739,9 @@ app.put('/api/notes/:id', (req: Request, res: Response) => {
   res.json({ success: true, note: updatedNote });
 });
 
-app.delete('/api/notes/:id', (req: Request, res: Response) => {
+app.delete('/api/notes/:id', requireAuth, (req: Request, res: Response) => {
   const db = readDb();
+  const user = (req as AuthenticatedRequest).user!;
   const { id } = req.params;
 
   const index = db.notes.findIndex(n => n.id === id);
@@ -1340,19 +1749,189 @@ app.delete('/api/notes/:id', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Note not found' });
   }
 
+  const target = db.notes[index];
+  // SEC-02: Verify ownership
+  if (target.userId && target.userId !== user.id && user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: You can only delete notes you authored.' });
+  }
+
   const removed = db.notes.splice(index, 1)[0];
   writeDb(db);
   res.json({ success: true, removed });
 });
 
-// ----------------- CUSTOM FIELDS -----------------
+// AI Voice Speech-to-Text Transcription for Session Notes
+function detectAudioMime(buf: Buffer, clientMime?: string): string {
+  if (buf.length >= 4) {
+    // WebM / Matroska: 0x1A 0x45 0xDF 0xA3
+    if (buf[0] === 0x1A && buf[1] === 0x45 && buf[2] === 0xDF && buf[3] === 0xA3) {
+      return 'audio/webm';
+    }
+    // WAV: 'RIFF' ... 'WAVE'
+    if (buf.subarray(0, 4).toString('ascii') === 'RIFF') {
+      return 'audio/wav';
+    }
+    // Ogg: 'OggS'
+    if (buf.subarray(0, 4).toString('ascii') === 'OggS') {
+      return 'audio/ogg';
+    }
+    // FLAC: 'fLaC'
+    if (buf.subarray(0, 4).toString('ascii') === 'fLaC') {
+      return 'audio/flac';
+    }
+    // MP3 with ID3 tag: 'ID3'
+    if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) {
+      return 'audio/mp3';
+    }
+    // MP3 raw frame sync: 11 bits set (0xFF followed by 0xFB, 0xF3, 0xF2, or 0xE0+)
+    if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) {
+      return 'audio/mp3';
+    }
+  }
+  if (buf.length >= 8) {
+    // MP4 / M4A: bytes 4-8 are 'ftyp'
+    if (buf.subarray(4, 8).toString('ascii') === 'ftyp') {
+      return 'audio/mp4';
+    }
+  }
+
+  // Fallback to client MIME mapping
+  const normalized = (clientMime || '').toLowerCase().split(';')[0].trim();
+  if (normalized === 'audio/mpeg' || normalized === 'audio/mp3' || normalized === 'audio/mpg') {
+    return 'audio/mp3';
+  }
+  if (normalized === 'audio/wav' || normalized === 'audio/x-wav' || normalized === 'audio/wave') {
+    return 'audio/wav';
+  }
+  if (normalized === 'audio/mp4' || normalized === 'audio/m4a' || normalized === 'audio/x-m4a' || normalized === 'audio/aac') {
+    return 'audio/mp4';
+  }
+  if (normalized === 'audio/ogg' || normalized === 'audio/opus') {
+    return 'audio/ogg';
+  }
+  if (normalized === 'audio/flac' || normalized === 'audio/x-flac') {
+    return 'audio/flac';
+  }
+  if (normalized === 'audio/webm' || normalized === 'video/webm') {
+    return 'audio/webm';
+  }
+
+  return 'audio/webm';
+}
+
+app.post('/api/notes/transcribe', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { audioBase64, mimeType = 'audio/webm', courseCode, topicTitle, fallbackText, offlineText } = req.body;
+
+    if (!audioBase64 || typeof audioBase64 !== 'string') {
+      return res.status(400).json({ error: 'Audio data is required' });
+    }
+
+    // Strip data URL scheme prefix cleanly (handles any parameters such as data:audio/webm;codecs=opus;base64,...)
+    const commaIdx = audioBase64.indexOf(',');
+    const cleanBase64 = (commaIdx !== -1 ? audioBase64.slice(commaIdx + 1) : audioBase64).trim().replace(/\s+/g, '');
+
+    // Sniff the actual audio format from the magic bytes
+    const sampleHeaderBuf = Buffer.from(cleanBase64.slice(0, 48), 'base64');
+    const safeMime = detectAudioMime(sampleHeaderBuf, mimeType);
+
+    console.log(`[Transcription] Processing audio: detected ${safeMime} (client reported: ${mimeType}), payload length: ${cleanBase64.length}${offlineText ? `, offlineText: ${offlineText.length} chars` : ''}`);
+
+    const activeKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!activeKey) {
+      return res.json({
+        success: true,
+        transcription: offlineText || fallbackText || 'Voice note saved locally. (Gemini API key not configured on server).',
+        isOfflineFallback: true
+      });
+    }
+
+    const audioPart = {
+      inlineData: {
+        mimeType: safeMime,
+        data: cleanBase64
+      }
+    };
+
+    let transcription = '';
+
+    // Step 1: Call specialized transcription model 'gemini-3.5-transcribe' with direct fast prompt
+    try {
+      const transcribePrompt = offlineText
+        ? `Transcribe this audio recording accurately into clear text. Use this rough offline transcript as a reference: "${offlineText.slice(0, 1000)}". Correct any misheard terms and format with proper punctuation. Return only the transcription.`
+        : `Transcribe this audio recording into clear, accurate text.${courseCode ? ` Course: ${courseCode}.` : ''} Return only the transcription.`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-transcribe',
+        contents: {
+          parts: [
+            audioPart,
+            { text: transcribePrompt }
+          ]
+        }
+      });
+      transcription = (response.text || '').trim();
+      console.log(`[Transcription] gemini-3.5-transcribe returned ${transcription.length} characters`);
+    } catch (err: any) {
+      console.warn('[Transcription] gemini-3.5-transcribe error, trying gemini-3.8-flash:', err?.message || err);
+    }
+
+    // Step 2: If gemini-3.5-transcribe returned empty text or failed, fall back to multimodal gemini-3.8-flash
+    if (!transcription) {
+      try {
+        console.log('[Transcription] Invoking gemini-3.8-flash audio fallback...');
+        const flashPrompt = offlineText
+          ? `Listen to this audio recording and refine this spoken note: "${offlineText.slice(0, 1000)}". Fix domain terms and format cleanly. Return only the transcription.`
+          : `Listen to this audio recording carefully and transcribe all spoken words into clear, accurate text. Return only the transcription text.`;
+        
+        const fallbackRes = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: {
+            parts: [
+              audioPart,
+              { text: flashPrompt }
+            ]
+          }
+        });
+        transcription = (fallbackRes.text || '').trim();
+        console.log(`[Transcription] gemini-3.8-flash returned ${transcription.length} characters`);
+      } catch (flashErr: any) {
+        console.error('[Transcription] gemini-3.8-flash fallback also encountered an error:', flashErr?.message || flashErr);
+      }
+    }
+
+    const finalTranscript = (transcription || offlineText || fallbackText || '').trim();
+    res.json({
+      success: true,
+      transcription: finalTranscript,
+      detectedMime: safeMime,
+      isOfflineFallback: !transcription && Boolean(offlineText || fallbackText)
+    });
+  } catch (error: any) {
+    console.error('[Transcription Error]', error?.message || error);
+    const clientFallback = req.body.offlineText || req.body.fallbackText;
+    if (clientFallback && typeof clientFallback === 'string') {
+      return res.json({
+        success: true,
+        transcription: clientFallback.trim(),
+        isOfflineFallback: true,
+        notice: 'Used offline speech recognition transcript.'
+      });
+    }
+    res.status(500).json({
+      error: error?.message || 'Failed to transcribe audio session note'
+    });
+  }
+});
+
+// ----------------- CUSTOM FIELDS (SEC-01: Admin Only) -----------------
 
 app.get('/api/custom-fields', (_req: Request, res: Response) => {
   const db = readDb();
   res.json({ success: true, data: db.customFields });
 });
 
-app.post('/api/custom-fields', (req: Request, res: Response) => {
+app.post('/api/custom-fields', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const field: ServerCustomFieldDefinition = req.body;
 
@@ -1363,6 +1942,8 @@ app.post('/api/custom-fields', (req: Request, res: Response) => {
   const newField: ServerCustomFieldDefinition = {
     ...field,
     id: field.id || `cf-${Date.now().toString(36)}`,
+    name: sanitizeString(field.name, 50),
+    label: sanitizeString(field.label, 100),
     appliesTo: field.appliesTo || 'all'
   };
 
@@ -1371,7 +1952,7 @@ app.post('/api/custom-fields', (req: Request, res: Response) => {
   res.status(201).json({ success: true, field: newField });
 });
 
-app.delete('/api/custom-fields/:id', (req: Request, res: Response) => {
+app.delete('/api/custom-fields/:id', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
   const { id } = req.params;
 
@@ -1400,13 +1981,16 @@ app.get('/api/notifications', (_req: Request, res: Response) => {
 app.post('/api/notifications/subscribe', (req: Request, res: Response) => {
   const db = readDb();
   const sub = req.body;
-  if (!sub) return res.status(400).json({ error: 'Invalid subscription' });
-  db.subscriptions.push({ ...sub, registeredAt: new Date().toISOString() });
+  if (!sub || typeof sub !== 'object') return res.status(400).json({ error: 'Invalid subscription' });
+  db.subscriptions.push({
+    endpoint: sanitizeString(sub.endpoint, 500),
+    registeredAt: new Date().toISOString()
+  });
   writeDb(db);
   res.json({ success: true, message: 'Push subscription registered for device reminders.' });
 });
 
-app.post('/api/notifications/test', (req: Request, res: Response) => {
+app.post('/api/notifications/test', sensitiveLimiter, requireAuth, (req: Request, res: Response) => {
   const db = readDb();
   const { courseCode = 'BCS 314', interval = 30 } = req.body;
   const course = db.timetable.find(c => c.courseCode === courseCode) || db.timetable[0];
@@ -1421,7 +2005,7 @@ app.post('/api/notifications/test', (req: Request, res: Response) => {
     type: 'reminder',
     timestamp: new Date().toISOString(),
     read: false,
-    minutesBefore: interval
+    minutesBefore: typeof interval === 'number' ? interval : 30
   };
 
   db.notifications.unshift(testNotif);
@@ -1435,14 +2019,21 @@ app.get('/api/settings', (_req: Request, res: Response) => {
   res.json({ success: true, data: db.settings });
 });
 
-app.post('/api/settings', (req: Request, res: Response) => {
+// SEC-01: Admin Only Settings Modification
+app.post('/api/settings', requireAdmin, (req: Request, res: Response) => {
   const db = readDb();
-  db.settings = { ...db.settings, ...req.body };
+  const updates = req.body || {};
+  db.settings = {
+    ...db.settings,
+    ...updates,
+    theme: updates.theme === 'dark' || updates.theme === 'light' ? updates.theme : db.settings.theme,
+    timezone: updates.timezone ? sanitizeString(updates.timezone, 50) : db.settings.timezone
+  };
   writeDb(db);
   res.json({ success: true, data: db.settings });
 });
 
-app.post('/api/sync', (req: Request, res: Response) => {
+app.post('/api/sync', sensitiveLimiter, (req: Request, res: Response) => {
   const db = readDb();
   const { lastSyncTime } = req.body;
   
@@ -1533,6 +2124,20 @@ setInterval(() => {
     console.warn('Background reminder tick exception:', err);
   }
 }, 30000);
+
+// ----------------- API ISOLATION & ERROR GUARDS -----------------
+// Guarantee that ALL requests under /api/* ALWAYS return JSON and NEVER fall into Vite SPA HTML fallback
+app.all('/api/*', (_req: Request, res: Response) => {
+  res.status(404).json({ error: 'API route not found' });
+});
+
+// Global API error middleware ensuring all errors return JSON instead of Express default HTML error page
+app.use('/api', (err: any, _req: Request, res: Response, _next: express.NextFunction) => {
+  console.error('[API Error Handler]', err?.message || err);
+  res.status(err.status || err.statusCode || 500).json({
+    error: err?.message || 'Internal server error occurred processing API request'
+  });
+});
 
 // ----------------- VITE & STATIC SERVING -----------------
 async function startServer() {

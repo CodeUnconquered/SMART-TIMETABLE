@@ -15,10 +15,19 @@ import {
   Sparkles, 
   Smartphone,
   ShieldAlert,
-  BellRing
+  BellRing,
+  Mic,
+  MessageSquare
 } from 'lucide-react';
 import { NotificationItem, NotificationPreferences } from '../types/timetable';
-import { playNotificationSound, triggerVibration, startProlongedAlarm, stopProlongedAlarm } from '../utils/audio';
+import { 
+  playNotificationSound, 
+  triggerVibration, 
+  startProlongedAlarm, 
+  stopProlongedAlarm,
+  speakVoiceAnnouncement,
+  stopVoiceAnnouncement 
+} from '../utils/audio';
 import { setPreferences } from '../utils/storage';
 
 interface NotificationsViewProps {
@@ -46,6 +55,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [testTriggered, setTestTriggered] = useState(false);
   const [customIntervalInput, setCustomIntervalInput] = useState('');
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
+  const [activeSpeakingText, setActiveSpeakingText] = useState<string | null>(null);
 
   // Toggle sound
   const toggleSound = () => {
@@ -55,6 +65,40 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     if (updated.soundEnabled) {
       playNotificationSound(updated.soundType);
     }
+  };
+
+  // Toggle voice announcements
+  const toggleVoiceAnnouncement = () => {
+    const isCurrentlyEnabled = preferences.voiceAnnouncementEnabled !== false;
+    const updated = { ...preferences, voiceAnnouncementEnabled: !isCurrentlyEnabled };
+    onUpdatePreferences(updated);
+    setPreferences(updated);
+    if (!isCurrentlyEnabled) {
+      speakVoiceAnnouncement("Voice announcements enabled. Reminders will be spoken aloud.", updated.voiceSpeechRate || 1.0);
+    } else {
+      stopVoiceAnnouncement();
+      setActiveSpeakingText(null);
+    }
+  };
+
+  // Change voice speech rate
+  const changeVoiceSpeechRate = (rate: number) => {
+    const updated = { ...preferences, voiceSpeechRate: rate };
+    onUpdatePreferences(updated);
+    setPreferences(updated);
+    speakVoiceAnnouncement("BCS 361 is starting in 30 minutes.", rate);
+  };
+
+  // Preview custom voice sample
+  const handleTestSpeech = async (text: string) => {
+    if (activeSpeakingText === text) {
+      stopVoiceAnnouncement();
+      setActiveSpeakingText(null);
+      return;
+    }
+    setActiveSpeakingText(text);
+    await speakVoiceAnnouncement(text, preferences.voiceSpeechRate || 1.0);
+    setActiveSpeakingText(null);
   };
 
   // Toggle vibration
@@ -151,6 +195,18 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
+              onClick={() => handleTestSpeech("BCS 361 is starting in 30 minutes.")}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg ${
+                activeSpeakingText
+                  ? 'bg-cyan-600 hover:bg-cyan-500 text-white animate-pulse'
+                  : 'bg-cyan-950/90 border border-cyan-700/70 hover:bg-cyan-900 text-cyan-200 shadow-cyan-950/60'
+              }`}
+            >
+              <Volume2 className="w-4 h-4 text-cyan-400" />
+              <span>{activeSpeakingText ? 'Stop Speaking' : 'Test Voice Announcement'}</span>
+            </button>
+
+            <button
               onClick={handleTestProlongedAlarm}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg ${
                 isAlarmPlaying
@@ -204,7 +260,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
         </h2>
 
         {/* Permission and Toggles */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Permission */}
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
             <div>
@@ -216,7 +272,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             {permissionStatus !== 'granted' ? (
               <button
                 onClick={onRequestPermission}
-                className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold"
+                className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold cursor-pointer"
               >
                 Enable
               </button>
@@ -238,13 +294,34 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             </div>
             <button
               onClick={toggleSound}
-              className={`p-2 rounded-xl border transition-colors ${
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
                 preferences.soundEnabled
                   ? 'bg-cyan-950 border-cyan-700 text-cyan-400'
                   : 'bg-slate-900 border-slate-800 text-slate-400'
               }`}
             >
               {preferences.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* Voice Announcement Toggle */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-white block">Voice Announcements</span>
+              <span className="text-[11px] font-mono text-slate-400">
+                {preferences.voiceAnnouncementEnabled !== false ? 'Spoken Aloud' : 'Disabled'}
+              </span>
+            </div>
+            <button
+              onClick={toggleVoiceAnnouncement}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                preferences.voiceAnnouncementEnabled !== false
+                  ? 'bg-cyan-950 border-cyan-700 text-cyan-400'
+                  : 'bg-slate-900 border-slate-800 text-slate-400'
+              }`}
+              title={preferences.voiceAnnouncementEnabled !== false ? 'Turn off voice announcements' : 'Turn on voice announcements'}
+            >
+              {preferences.voiceAnnouncementEnabled !== false ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
           </div>
 
@@ -258,7 +335,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             </div>
             <button
               onClick={toggleVibration}
-              className={`p-2 rounded-xl border transition-colors ${
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
                 preferences.vibrationEnabled
                   ? 'bg-cyan-950 border-cyan-700 text-cyan-400'
                   : 'bg-slate-900 border-slate-800 text-slate-400'
@@ -266,6 +343,112 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             >
               <Vibrate className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* Voice Announcement Spoken Reminders Panel */}
+        <div className="p-5 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                  Voice Spoken Announcement System
+                </h3>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+                  preferences.voiceAnnouncementEnabled !== false 
+                    ? 'bg-cyan-950 text-cyan-300 border-cyan-800' 
+                    : 'bg-slate-900 text-slate-400 border-slate-800'
+                }`}>
+                  {preferences.voiceAnnouncementEnabled !== false ? 'Enabled · Speaks Reminders Aloud' : 'Disabled (Optional)'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                When active, your device speaks reminders aloud when alarms trigger (e.g. <em>&ldquo;BCS 361 is starting in 30 minutes&rdquo;</em>). Works 100% offline using client-side speech synthesis without replacing standard visual alerts.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <label className="text-xs font-mono text-slate-400">Speech Rate:</label>
+              <div className="flex gap-1.5">
+                {[
+                  { rate: 0.85, label: '0.85x' },
+                  { rate: 1.0, label: '1.0x' },
+                  { rate: 1.15, label: '1.15x' }
+                ].map(speed => (
+                  <button
+                    key={speed.rate}
+                    onClick={() => changeVoiceSpeechRate(speed.rate)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer border ${
+                      (preferences.voiceSpeechRate || 1.0) === speed.rate
+                        ? 'bg-cyan-600 text-white border-cyan-500 shadow-sm'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    {speed.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Spoken Samples */}
+          <div className="space-y-2 pt-2 border-t border-slate-800/80">
+            <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wide block">
+              Click any sample below to preview dynamic speech generation:
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {[
+                { 
+                  label: 'Class 30m Prior', 
+                  text: 'BCS 361 is starting in 30 minutes.',
+                  desc: 'Academic class lead time' 
+                },
+                { 
+                  label: 'Personal Study Session', 
+                  text: 'Your personal study session starts in 10 minutes.',
+                  desc: 'Personal study task' 
+                },
+                { 
+                  label: 'Meeting Starting Now', 
+                  text: 'Your meeting is starting now.',
+                  desc: 'Immediate task alert' 
+                },
+                { 
+                  label: 'Class Starting at Venue', 
+                  text: 'BCS 361 is starting now at LBB 016.',
+                  desc: 'Immediate class with venue' 
+                }
+              ].map(sample => {
+                const isSpeakingThis = activeSpeakingText === sample.text;
+                return (
+                  <button
+                    key={sample.label}
+                    onClick={() => handleTestSpeech(sample.text)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                      isSpeakingThis
+                        ? 'bg-cyan-950 border-cyan-500 text-cyan-200 ring-1 ring-cyan-500/40 shadow-md'
+                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase">
+                          {sample.label}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">({sample.desc})</span>
+                      </div>
+                      <p className="text-xs font-medium text-white italic truncate">
+                        &ldquo;{sample.text}&rdquo;
+                      </p>
+                    </div>
+                    <div className={`p-2 rounded-lg shrink-0 ${isSpeakingThis ? 'bg-cyan-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400'}`}>
+                      <Volume2 className="w-4 h-4" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

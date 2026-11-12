@@ -188,6 +188,7 @@ export function stopProlongedAlarm(): void {
     activeAlarmTimeout = null;
   }
   stopVibration();
+  stopVoiceAnnouncement();
 }
 
 /**
@@ -195,6 +196,118 @@ export function stopProlongedAlarm(): void {
  */
 export function isAlarmRinging(): boolean {
   return isAlarmCurrentlyPlaying;
+}
+
+/**
+ * Dynamically generate spoken voice announcement text based on reminder details
+ */
+export function generateVoiceAnnouncementText(item: {
+  title?: string;
+  message?: string;
+  courseCode?: string;
+  type?: string;
+  minutesBefore?: number;
+  venue?: string;
+}): string {
+  const minutes = item.minutesBefore;
+
+  // 1. Academic Class Reminders (e.g. "BCS 361 is starting in 30 minutes")
+  if (item.courseCode) {
+    const code = item.courseCode.trim();
+    if (minutes !== undefined && minutes > 0) {
+      return `${code} is starting in ${minutes} minutes.`;
+    }
+    return `${code} is starting now${item.venue ? ` at ${item.venue}` : ''}.`;
+  }
+
+  // 2. Personal Task Reminders (e.g. "Your personal study session starts in 10 minutes", "Your meeting is starting now")
+  if (item.type === 'task' || (item.title && item.title.toUpperCase().includes('TASK'))) {
+    let taskName = '';
+    if (item.title) {
+      // Strip leading prefixes like "TASK REMINDER:" or "PERSONAL TASK:"
+      taskName = item.title
+        .replace(/^(TASK\s*REMINDER|PERSONAL\s*TASK|REMINDER):\s*/i, '')
+        .replace(/\s*\([^)]*\)\s*$/i, '')
+        .trim();
+    }
+    if (!taskName && item.message) {
+      const firstLine = item.message.split('\n')[0];
+      taskName = firstLine.replace(/^Activity:\s*/i, '').trim();
+    }
+    if (!taskName) {
+      taskName = 'scheduled activity';
+    }
+
+    const cleanTitle = taskName.replace(/^your\s+/i, '').trim();
+
+    if (minutes !== undefined && minutes > 0) {
+      return `Your ${cleanTitle} starts in ${minutes} minutes.`;
+    }
+    return `Your ${cleanTitle} is starting now.`;
+  }
+
+  // 3. General Notifications / Reminders
+  if (minutes !== undefined && minutes > 0) {
+    return `${item.title || 'Your reminder'} is due in ${minutes} minutes.`;
+  }
+  return item.title || 'You have an upcoming reminder on Smart Remind.';
+}
+
+/**
+ * Speak voice announcement aloud using client Web Speech API (offline-ready, zero latency)
+ */
+export function speakVoiceAnnouncement(text: string, rate: number = 1.0): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      resolve();
+      return;
+    }
+
+    try {
+      // Cancel previous speech to avoid overlapping queue
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = Math.max(0.7, Math.min(1.5, rate));
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      utterance.lang = 'en-US';
+
+      // Pick a natural voice if available in the browser's voice table
+      const voices = window.speechSynthesis.getVoices();
+      if (voices && voices.length > 0) {
+        const naturalVoice = voices.find(v => 
+          v.lang.startsWith('en') && 
+          (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Alex'))
+        ) || voices.find(v => v.lang.startsWith('en'));
+
+        if (naturalVoice) {
+          utterance.voice = naturalVoice;
+        }
+      }
+
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('[Voice Announcement Notice]', err);
+      resolve();
+    }
+  });
+}
+
+/**
+ * Stop any active spoken voice announcement immediately
+ */
+export function stopVoiceAnnouncement(): void {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      // ignore
+    }
+  }
 }
 
 /**

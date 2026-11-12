@@ -13,7 +13,7 @@
       "timeDisplay": "7:00 AM - 10:00 AM",
       "startMinutes": 420,
       "endMinutes": 600,
-      "venue": "LBB 016",
+      "venue": "Lab 3 & LH-04",
       "building": "Main Science Quad, Ground Floor",
       "classType": "Lecture",
       "domain": "core",
@@ -31,7 +31,7 @@
       "lecturerPhone": "+254 712 345 678",
       "instructions": "Bring JFLAP simulator on laptop",
       "occurrenceOverrides": [],
-      "lastUpdated": "2026-11-09T10:11:33.530Z"
+      "lastUpdated": "2026-11-11T08:47:48.256Z"
     },
     {
       "id": "bcs-354",
@@ -370,9 +370,125 @@
       ],
       "studentGroup": "BSc. CS Year 3",
       "lecturerPhone": "+254 729 678 901"
+    },
+    {
+      "courseCode": "HACK 101",
+      "courseName": "Malicious Injection",
+      "day": "Monday",
+      "startTime": "12:00",
+      "endTime": "14:00",
+      "venue": "Lab 9",
+      "id": "bcs-mwacvc28",
+      "status": "active",
+      "occurrenceOverrides": [],
+      "lastUpdated": "2026-11-10T07:15:23.984Z"
     }
   ],
   "changes": [
+    {
+      "id": "chg-1794386868256",
+      "entryId": "bcs-315",
+      "courseCode": "BCS 315",
+      "courseName": "Automata Theory & Computability",
+      "changeType": "venue_changed",
+      "previousDetails": "Monday 7:00 AM - 10:00 AM at LBB 016",
+      "newDetails": "Monday 7:00 AM - 10:00 AM at Lab 3 & LH-04",
+      "reason": "Academic schedule refinement",
+      "timestamp": "2026-11-11T08:47:48.256Z",
+      "performedBy": "Academic Timetable Administrator",
+      "notifiedStudentsCount": 142
+    },
+    {
+      "id": "chg-1794295011702",
+      "entryId": "bcs-mwacx7qc",
+      "courseCode": "SEC 500",
+      "courseName": "Applied Security Engineering",
+      "changeType": "deleted",
+      "previousDetails": "Wednesday 2:00 PM - 4:00 PM at SEC LAB 02",
+      "newDetails": "Permanently deleted from active timetable",
+      "reason": "Curriculum decommission directive",
+      "timestamp": "2026-11-10T07:16:51.702Z",
+      "performedBy": "Academic Timetable Administrator",
+      "notifiedStudentsCount": 142
+    },
+    {
+      "id": "chg-1794295011684",
+      "entryId": "bcs-mwacx7qc",
+      "courseCode": "SEC 500",
+      "courseName": "Applied Security Engineering",
+      "changeType": "created",
+      "previousDetails": "Not on schedule",
+      "newDetails": "Wednesday 2:00 PM - 4:00 PM at SEC LAB 02",
+      "reason": "New course offering added to timetable",
+      "timestamp": "2026-11-10T07:16:51.684Z",
+      "performedBy": "Dr. Academic Registrar",
+      "notifiedStudentsCount": 142
+    },
+    {
+      "id": "chg-1794294980514",
+      "entryId": "bcs-mwacwjnt",
+      "courseCode": "SEC 500",
+      "courseName": "Applied Security Engineering",
+      "changeType": "deleted",
+      "previousDetails": "Wednesday 2:00 PM - 4:00 PM at SEC LAB 02",
+      "newDetails": "Permanently deleted from active timetable",
+      "reason": "Curriculum decommission directive",
+      "timestamp": "2026-11-10T07:16:20.514Z",
+      "performedBy": "Academic Timetable Administrator",
+      "notifiedStudentsCount": 142
+    },
+    {
+      "id": "chg-1794294980489",
+      "entryId": "bcs-mwacwjnt",
+      "courseCode": "SEC 500",
+      "courseName": "Applied Security Engineering",
+      "changeType": "created",
+      "previousDetails": "Not on schedule",
+      "newDetails": "Wednesday 2:00 PM - 4:00 PM at SEC LAB 02",
+      "reason": "New course offering added to timetable",
+      "timestamp": "2026-11-10T07:16:20.489Z",
+      "performedBy": "Dr. Academic Registrar",
+      "notifiedStudentsCount": 142
+    },
+    {
+      "id": "chg-1794294940435",
+      "entryId": "bcs-mwacvoqu",
+      "courseCode": "SEC 401",
+      "courseName": "Advanced Cryptography & System Hardening",
+      "changeType": "deleted",
+      "previousDetails": "Friday 2:00 PM - 4:00 PM at SEC LAB 01",
+      "newDetails": "Permanently deleted from active timetable",
+      "reason": "Curriculum decommission directive",
+      "timestamp": "2026-11-10T07:15:40.435Z",
+      "performedBy": "Academic Timetable Administrator",
+      "notifiedStudentsCount": 142
+    },
+    {
+      "id": "chg-1794294940422",
+      "entryId": "bcs-mwacvoqu",
+      "courseCode": "SEC 401",
+      "courseName": "Advanced Cryptography & System Hardening",
+      "changeType": "created",
+      "previousDetails": "Not on schedule",
+      "newDetails": "Friday 2:00 PM - 4:00 PM at SEC LAB 01",
+      "reason": "New course offering added to timetable",
+      "timestamp": "2026-11-10T07:15:40.422Z",
+      "performedBy": "Dr. Academic Registrar",
+      "notifiedStudentsCount": 142
+    },
+    {
+      "id": "chg-1794294923984",
+      "entryId": "bcs-mwacvc28",
+      "courseCode": "HACK 101",
+      "courseName": "Malicious Injection",
+      "changeType": "created",
+      "previousDetails": "Not on schedule",
+      "newDetails": "Monday undefined at Lab 9",
+      "reason": "New course offering added to timetable",
+      "timestamp": "2026-11-10T07:15:23.984Z",
+      "performedBy": "Academic Timetable Administrator",
+      "notifiedStudentsCount": 142
+    },
     {
       "id": "chg-1794219093530",
       "entryId": "bcs-315",
@@ -400,6 +516,54 @@
     }
   ],
   "notifications": [
+    {
+      "id": "notif-change-1794386868256",
+      "title": "TIMETABLE UPDATE: BCS 315",
+      "message": "Automata Theory & Computability rescheduled to Monday 7:00 AM - 10:00 AM at Lab 3 & LH-04.",
+      "courseCode": "BCS 315",
+      "venue": "Lab 3 & LH-04",
+      "timeSlot": "7:00 AM - 10:00 AM",
+      "type": "rescheduled",
+      "timestamp": "2026-11-11T08:47:48.256Z",
+      "read": false
+    },
+    {
+      "id": "notif-task-1794295011714",
+      "title": "PERSONAL TASK SCHEDULED: Secret Task",
+      "message": "Scheduled for 2026-11-15 at 10:00 (STUDY).",
+      "taskId": "task-mwacx7r6",
+      "type": "task",
+      "timestamp": "2026-11-10T07:16:51.714Z",
+      "read": false
+    },
+    {
+      "id": "notif-task-1794294980523",
+      "title": "PERSONAL TASK SCHEDULED: Secret Task",
+      "message": "Scheduled for 2026-11-15 at 10:00 (STUDY).",
+      "taskId": "task-mwacwjor",
+      "type": "task",
+      "timestamp": "2026-11-10T07:16:20.523Z",
+      "read": false
+    },
+    {
+      "id": "notif-task-1794294940429",
+      "title": "PERSONAL TASK SCHEDULED: Private Study Session",
+      "message": "Scheduled for 2026-11-12 at 16:00 (STUDY).",
+      "taskId": "task-mwacvor1",
+      "type": "task",
+      "timestamp": "2026-11-10T07:15:40.429Z",
+      "read": false
+    },
+    {
+      "id": "notif-add-1794294923984",
+      "title": "NEW COURSE PUBLISHED: HACK 101",
+      "message": "Malicious Injection added on Monday (undefined) at Lab 9.",
+      "courseCode": "HACK 101",
+      "venue": "Lab 9",
+      "type": "system",
+      "timestamp": "2026-11-10T07:15:23.984Z",
+      "read": false
+    },
     {
       "id": "notif-change-1794219093530",
       "title": "TIMETABLE UPDATE: BCS 315",
@@ -441,6 +605,46 @@
     "theme": "dark"
   },
   "tasks": [
+    {
+      "title": "Tampered Task",
+      "category": "study",
+      "date": "2026-11-15",
+      "startTime": "10:00",
+      "endTime": "12:00",
+      "startMinutes": 600,
+      "endMinutes": 720,
+      "reminderIntervals": [
+        15
+      ],
+      "id": "task-mwacwjor",
+      "userId": "usr-student-01",
+      "description": "",
+      "priority": "medium",
+      "location": "",
+      "status": "pending",
+      "createdAt": "2026-11-10T07:16:20.523Z",
+      "updatedAt": "2026-11-10T07:16:20.582Z"
+    },
+    {
+      "title": "Private Study Session",
+      "category": "study",
+      "date": "2026-11-12",
+      "startTime": "16:00",
+      "endTime": "18:00",
+      "startMinutes": 960,
+      "endMinutes": 1080,
+      "reminderIntervals": [
+        15
+      ],
+      "id": "task-mwacvor1",
+      "userId": "usr-student-01",
+      "description": "",
+      "priority": "medium",
+      "location": "",
+      "status": "pending",
+      "createdAt": "2026-11-10T07:15:40.429Z",
+      "updatedAt": "2026-11-10T07:15:40.429Z"
+    },
     {
       "id": "task-01",
       "title": "Algorithms Revision & Problem Sets",

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BellRing, VolumeX, CheckCircle, Clock, MapPin } from 'lucide-react';
-import { stopProlongedAlarm } from '../utils/audio';
+import { BellRing, VolumeX, Volume2, CheckCircle, Clock, MapPin } from 'lucide-react';
+import { stopProlongedAlarm, stopVoiceAnnouncement } from '../utils/audio';
 
 interface AlarmRingingModalProps {
   isOpen: boolean;
@@ -9,6 +9,7 @@ interface AlarmRingingModalProps {
   courseCode?: string;
   venue?: string;
   timeSlot?: string;
+  spokenAnnouncement?: string;
   durationSeconds?: number;
   onDismiss: () => void;
 }
@@ -20,6 +21,7 @@ export const AlarmRingingModal: React.FC<AlarmRingingModalProps> = ({
   courseCode,
   venue,
   timeSlot,
+  spokenAnnouncement,
   durationSeconds = 10,
   onDismiss
 }) => {
@@ -46,6 +48,7 @@ export const AlarmRingingModal: React.FC<AlarmRingingModalProps> = ({
 
   const handleStop = () => {
     stopProlongedAlarm();
+    stopVoiceAnnouncement();
     onDismiss();
   };
 
@@ -92,6 +95,17 @@ export const AlarmRingingModal: React.FC<AlarmRingingModalProps> = ({
           <p className="text-sm text-slate-300 leading-relaxed">
             {message}
           </p>
+
+          {spokenAnnouncement && (
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-cyan-950/70 border border-cyan-500/40 text-cyan-200 text-xs shadow-inner">
+              <Volume2 className="w-4 h-4 text-cyan-400 shrink-0 animate-pulse" />
+              <div className="leading-snug">
+                <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wide block">Spoken Voice Announcement</span>
+                <span className="italic text-slate-100">&ldquo;{spokenAnnouncement}&rdquo;</span>
+              </div>
+            </div>
+          )}
+
           {(venue || timeSlot) && (
             <div className="pt-2 border-t border-slate-800/80 flex flex-wrap gap-4 text-xs font-mono text-slate-400">
               {timeSlot && (

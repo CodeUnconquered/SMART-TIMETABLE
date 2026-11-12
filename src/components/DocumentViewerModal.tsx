@@ -8,6 +8,19 @@ interface DocumentViewerModalProps {
   onDelete?: (documentId: string) => void;
 }
 
+export function isSafeDocumentUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  const trimmed = url.trim().toLowerCase();
+  // Strictly block javascript:, vbscript:, and inline HTML data URLs
+  if (trimmed.startsWith('javascript:') || trimmed.startsWith('vbscript:')) return false;
+  if (trimmed.startsWith('data:text/html') || trimmed.startsWith('data:text/javascript')) return false;
+  // Allow safe web URLs and valid media data URLs
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
+  if (trimmed.startsWith('data:application/pdf') || trimmed.startsWith('data:image/') || trimmed.startsWith('data:audio/')) return true;
+  if (trimmed.startsWith('blob:')) return true;
+  return false;
+}
+
 export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   document: doc,
   onClose,
@@ -15,13 +28,20 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 }) => {
   if (!doc) return null;
 
-  const isPdf = doc.type === 'pdf' || doc.mimeType?.includes('pdf') || doc.name.toLowerCase().endsWith('.pdf');
-  const isImage = doc.type === 'image' || doc.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(doc.name);
+  const isSafe = isSafeDocumentUrl(doc.url);
+  const isPdf = isSafe && (doc.type === 'pdf' || doc.mimeType?.includes('pdf') || doc.name.toLowerCase().endsWith('.pdf'));
+  const isImage = isSafe && (doc.type === 'image' || doc.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(doc.name));
+  const isAudio = isSafe && (doc.type === 'audio' || doc.mimeType?.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|webm|aac)$/i.test(doc.name));
 
   const handleDownload = () => {
+    if (!isSafe) {
+      console.warn('[Security] Blocked unsafe document URL download:', doc.url);
+      return;
+    }
     const a = window.document.createElement('a');
     a.href = doc.url;
-    a.download = doc.name;
+    // Sanitize filename to prevent directory traversal or header manipulation
+    a.download = doc.name.replace(/[^a-zA-Z0-9._\-\s]/g, '_');
     window.document.body.appendChild(a);
     a.click();
     window.document.body.removeChild(a);
@@ -89,10 +109,21 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
         {/* In-Browser Document Canvas */}
         <div className="flex-1 bg-slate-950/90 p-2 sm:p-4 overflow-auto flex items-center justify-center">
-          {isPdf ? (
+          {!isSafe ? (
+            <div className="text-center p-8 space-y-4 max-w-md bg-rose-950/30 border border-rose-800/50 rounded-2xl">
+              <div className="w-12 h-12 rounded-full bg-rose-900/50 border border-rose-750 text-rose-400 mx-auto flex items-center justify-center">
+                <X className="w-6 h-6" />
+              </div>
+              <h4 className="text-base font-bold text-white">Attachment Blocked by Security Policy</h4>
+              <p className="text-xs text-rose-300/80 leading-relaxed">
+                This attachment uses an unrecognized or potentially hazardous URI scheme and has been restricted to protect your device.
+              </p>
+            </div>
+          ) : isPdf ? (
             <iframe
               src={doc.url}
               title={doc.name}
+              sandbox="allow-downloads allow-same-origin"
               className="w-full h-full rounded-2xl border border-slate-800 bg-white"
             />
           ) : isImage ? (
@@ -102,6 +133,17 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                 alt={doc.name}
                 className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-lg border border-slate-800"
               />
+            </div>
+          ) : isAudio ? (
+            <div className="w-full max-w-lg p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-xl space-y-4 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-cyan-950 border border-cyan-800 text-cyan-400 mx-auto flex items-center justify-center shadow-lg shadow-cyan-950/50">
+                <FileText className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-white">{doc.name}</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Recorded Voice Session Note ({doc.sizeFormatted})</p>
+              </div>
+              <audio controls src={doc.url} className="w-full mt-2" />
             </div>
           ) : (
             <div className="text-center p-8 space-y-4 max-w-md">

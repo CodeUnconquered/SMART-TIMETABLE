@@ -18,8 +18,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   unreadCount,
+  user,
   currentTheme = 'dark',
-  onToggleTheme
+  onToggleTheme,
+  onSwitchRole
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-slate-100 no-print">
@@ -113,27 +115,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Global Theme Toggle Button */}
-        {onToggleTheme && (
-          <button
-            onClick={onToggleTheme}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-750 text-slate-200 border border-slate-700/60 flex items-center gap-1.5 text-xs font-mono transition-all cursor-pointer shadow-sm shrink-0"
-            title={`Current Theme: ${currentTheme === 'dark' ? 'Dark' : 'Light'}. Click to toggle.`}
-            aria-label="Toggle theme"
-          >
-            {currentTheme === 'dark' ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-400" />
-                <span className="hidden sm:inline text-[11px] font-semibold text-slate-300">Light</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4 text-indigo-500" />
-                <span className="hidden sm:inline text-[11px] font-semibold text-slate-700">Dark</span>
-              </>
-            )}
-          </button>
-        )}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Global Theme Toggle Button */}
+          {onToggleTheme && (
+            <button
+              onClick={onToggleTheme}
+              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-750 text-slate-200 border border-slate-700/60 flex items-center gap-1.5 text-xs font-mono transition-all cursor-pointer shadow-sm shrink-0"
+              title={`Current Theme: ${currentTheme === 'dark' ? 'Dark' : 'Light'}. Click to toggle.`}
+              aria-label="Toggle theme"
+            >
+              {currentTheme === 'dark' ? (
+                <>
+                  <Sun className="w-4 h-4 text-amber-400" />
+                  <span className="hidden sm:inline text-[11px] font-semibold text-slate-300">Light</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 text-indigo-500" />
+                  <span className="hidden sm:inline text-[11px] font-semibold text-slate-700">Dark</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
 
       </div>
     </header>

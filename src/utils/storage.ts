@@ -29,8 +29,35 @@ const STORAGE_KEYS = {
   NOTES: 'smart_remind_session_notes_v2',
   CUSTOM_FIELDS: 'smart_remind_custom_fields_v2',
   THEME: 'smart_remind_global_theme_v1',
-  LAST_SYNC: 'smart_remind_last_sync_timestamp'
+  LAST_SYNC: 'smart_remind_last_sync_timestamp',
+  AUTH_TOKEN: 'smart_remind_auth_token_v3'
 };
+
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+}
+
+export function setAuthToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+}
+
+export function clearAuthToken(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+}
+
+export function getAuthHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export function getCachedTimetable(): TimetableEntry[] {
   if (typeof window === 'undefined') return INITIAL_TIMETABLE;

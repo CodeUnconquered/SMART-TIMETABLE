@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { NotificationItem, NotificationPreferences, TimetableEntry, PersonalTask } from '../types/timetable';
-import { playNotificationSound, startProlongedAlarm, stopProlongedAlarm, triggerVibration } from '../utils/audio';
+import { 
+  playNotificationSound, 
+  startProlongedAlarm, 
+  stopProlongedAlarm, 
+  triggerVibration,
+  generateVoiceAnnouncementText,
+  speakVoiceAnnouncement,
+  stopVoiceAnnouncement
+} from '../utils/audio';
 import { getCachedNotifications, setCachedNotifications, getPreferences } from '../utils/storage';
 
 export interface ScheduledReminderPayload {
@@ -31,6 +39,7 @@ export function useNotifications(timetable: TimetableEntry[], tasks: PersonalTas
     courseCode?: string;
     venue?: string;
     timeSlot?: string;
+    spokenAnnouncement?: string;
   } | null>(null);
 
   const seenRemindersRef = useRef<Set<string>>(new Set());
@@ -91,26 +100,44 @@ export function useNotifications(timetable: TimetableEntry[], tasks: PersonalTas
         read: false
       };
 
-      // 1. Play audio alarm if enabled
-      if (prefs.soundEnabled) {
-        if (item.type === 'reminder' || item.type === 'task') {
+      // Generate dynamic voice announcement text based on reminder details
+      const spokenAnnouncement = generateVoiceAnnouncementText({
+        title: newItem.title,
+        message: newItem.message,
+        courseCode: newItem.courseCode,
+        type: newItem.type,
+        minutesBefore: newItem.minutesBefore,
+        venue: newItem.venue
+      });
+
+      // 1. Prolonged Alarm / Visual Alert
+      if (item.type === 'reminder' || item.type === 'task') {
+        if (prefs.soundEnabled) {
           startProlongedAlarm(prefs.alarmDurationSeconds || 10, () => {
             setActiveRingingAlarm(null);
           });
-          setActiveRingingAlarm({
-            isOpen: true,
-            title: newItem.title,
-            message: newItem.message,
-            courseCode: newItem.courseCode,
-            venue: newItem.venue,
-            timeSlot: newItem.timeSlot
-          });
-        } else {
-          playNotificationSound(prefs.soundType);
         }
+        setActiveRingingAlarm({
+          isOpen: true,
+          title: newItem.title,
+          message: newItem.message,
+          courseCode: newItem.courseCode,
+          venue: newItem.venue,
+          timeSlot: newItem.timeSlot,
+          spokenAnnouncement: prefs.voiceAnnouncementEnabled !== false ? spokenAnnouncement : undefined
+        });
+      } else if (prefs.soundEnabled) {
+        playNotificationSound(prefs.soundType);
       }
 
-      // 2. Hardware vibration
+      // 2. Voice announcement (Optional: speaks dynamic message aloud)
+      if (prefs.voiceAnnouncementEnabled !== false && (item.type === 'reminder' || item.type === 'task')) {
+        setTimeout(() => {
+          speakVoiceAnnouncement(spokenAnnouncement, prefs.voiceSpeechRate || 1.0);
+        }, 350);
+      }
+
+      // 3. Hardware vibration
       if (prefs.vibrationEnabled) {
         triggerVibration([300, 150, 300, 150, 400]);
       }
@@ -370,6 +397,7 @@ export function useNotifications(timetable: TimetableEntry[], tasks: PersonalTas
     activeRingingAlarm,
     dismissActiveAlarm: () => {
       stopProlongedAlarm();
+      stopVoiceAnnouncement();
       setActiveRingingAlarm(null);
     },
     requestPermission,

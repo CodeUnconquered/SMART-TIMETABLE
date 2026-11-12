@@ -46,7 +46,10 @@ import {
   setPreferences,
   getGlobalTheme,
   setGlobalTheme,
-  applyGlobalTheme
+  applyGlobalTheme,
+  getAuthToken,
+  setAuthToken,
+  getAuthHeaders
 } from './utils/storage';
 import { DEFAULT_USER, DEFAULT_ADMIN } from './utils/initialData';
 
@@ -112,11 +115,64 @@ export default function App() {
     }, 4000);
   }, []);
 
-  // Fetch from server / synchronize data
+  // Authenticated fetch wrapper that attaches Authorization header and catches 401/403
+  const authFetch = useCallback(async (url: string, init?: RequestInit): Promise<Response> => {
+    const authHeaders = getAuthHeaders();
+    const headers = {
+      ...authHeaders,
+      ...(init?.headers || {})
+    };
+    const res = await fetch(url, { ...init, headers });
+    if (res.status === 401) {
+      console.warn('[Security] Unauthorized response for:', url);
+    } else if (res.status === 403) {
+      showToast('Permission Denied', 'Administrator privileges required for this action.');
+    }
+    return res;
+  }, [showToast]);
+
+  // Initial Auth Handshake: Bootstrap server session token
+  useEffect(() => {
+    let isCancelled = false;
+    async function initAuthSession() {
+      try {
+        const existingToken = getAuthToken();
+        if (existingToken) {
+          const checkRes = await fetch('/api/auth/me', {
+            headers: { Authorization: `Bearer ${existingToken}` }
+          });
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            if (checkData.authenticated && checkData.user) {
+              return; // Token is valid
+            }
+          }
+        }
+        // Issue fresh session
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: user.role, email: user.email, name: user.name })
+        });
+        if (loginRes.ok) {
+          const loginData = await loginRes.json();
+          if (loginData.token && !isCancelled) {
+            setAuthToken(loginData.token);
+          }
+        }
+      } catch (err) {
+        console.warn('[Auth] Handshake offline fallback:', err);
+      }
+    }
+    initAuthSession();
+    return () => { isCancelled = true; };
+  }, [user.role, user.email, user.name]);
+
+  // Fetch from server / synchronize data with security headers
   const syncWithServer = useCallback(async () => {
     try {
       // 1. Timetable
-      const res = await fetch('/api/timetable');
+      const res = await authFetch('/api/timetable');
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
@@ -126,7 +182,7 @@ export default function App() {
       }
 
       // 2. Tasks
-      const resTasks = await fetch('/api/tasks');
+      const resTasks = await authFetch('/api/tasks');
       if (resTasks.ok) {
         const jsonTasks = await resTasks.json();
         if (jsonTasks.data && Array.isArray(jsonTasks.data)) {
@@ -136,7 +192,7 @@ export default function App() {
       }
 
       // 3. Notes
-      const resNotes = await fetch('/api/notes');
+      const resNotes = await authFetch('/api/notes');
       if (resNotes.ok) {
         const jsonNotes = await resNotes.json();
         if (jsonNotes.data && Array.isArray(jsonNotes.data)) {
@@ -146,7 +202,7 @@ export default function App() {
       }
 
       // 4. Custom fields
-      const resFields = await fetch('/api/custom-fields');
+      const resFields = await authFetch('/api/custom-fields');
       if (resFields.ok) {
         const jsonFields = await resFields.json();
         if (jsonFields.data && Array.isArray(jsonFields.data)) {
@@ -156,7 +212,7 @@ export default function App() {
       }
 
       // 5. Change audit log
-      const resChanges = await fetch('/api/changes');
+      const resChanges = await authFetch('/api/changes');
       if (resChanges.ok) {
         const jsonChanges = await resChanges.json();
         if (jsonChanges.data && Array.isArray(jsonChanges.data)) {
@@ -166,7 +222,7 @@ export default function App() {
       }
 
       // 6. Global Theme & System Settings
-      const resSettings = await fetch('/api/settings');
+      const resSettings = await authFetch('/api/settings');
       if (resSettings.ok) {
         const jsonSettings = await resSettings.json();
         if (jsonSettings.data && jsonSettings.data.theme) {
@@ -178,20 +234,19 @@ export default function App() {
     } catch {
       console.log('[Sync] Network unreachable, running in offline mode with cached Smart Remind records.');
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     syncWithServer();
   }, [syncWithServer]);
 
-  // Global Theme Update Handler
+  // Global Theme Update Handler (Admin)
   const handleUpdateGlobalTheme = async (newTheme: GlobalThemeMode) => {
     setGlobalThemeState(newTheme);
     applyGlobalTheme(newTheme);
     try {
-      await fetch('/api/settings', {
+      await authFetch('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ theme: newTheme })
       });
       showToast(
@@ -206,23 +261,51 @@ export default function App() {
     }
   };
 
-  // Switch Role
-  const handleSwitchRole = () => {
-    const newUser = user.role === 'admin' ? DEFAULT_USER : DEFAULT_ADMIN;
+  // Switch Role with Server Token Synchronisation
+  const handleSwitchRole = async (targetRole?: 'admin' | 'student') => {
+    const nextRole = targetRole || (user.role === 'admin' ? 'student' : 'admin');
+    const newUser = nextRole === 'admin' ? DEFAULT_ADMIN : DEFAULT_USER;
+    try {
+      const res = await fetch('/api/auth/switch-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetRole: newUser.role })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) {
+          setAuthToken(data.token);
+        }
+      }
+    } catch (err) {
+      console.warn('[Auth] Role switch network sync:', err);
+    }
     setUser(newUser);
     setUserProfile(newUser);
     showToast(
       'Role Switched',
-      `Switched to ${newUser.role === 'admin' ? 'Timetable Administrator' : 'Student'} profile.`
+      `Switched to ${newUser.role === 'admin' ? 'Timetable Administrator (Admin Access)' : 'Student'} profile.`
     );
+    // Re-sync tasks and timetable for current user scope
+    setTimeout(() => {
+      syncWithServer();
+    }, 100);
   };
+
+  // Tab navigation handler that auto-elevates to Admin role when opening the Admin panel
+  const handleTabChange = (tab: NavTab) => {
+    if (tab === 'admin' && user.role !== 'admin') {
+      handleSwitchRole('admin');
+    }
+    setActiveTab(tab);
+  };
+
 
   // Add course (Admin)
   const handleAddCourse = async (newEntry: Omit<TimetableEntry, 'id'>): Promise<boolean> => {
     try {
-      const res = await fetch('/api/timetable', {
+      const res = await authFetch('/api/timetable', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newEntry)
       });
       if (res.ok) {
@@ -255,9 +338,8 @@ export default function App() {
   // Edit course (Admin)
   const handleEditCourse = async (courseId: string, updates: Partial<TimetableEntry>): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/timetable/${courseId}`, {
+      const res = await authFetch(`/api/timetable/${courseId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
       if (res.ok) {
@@ -283,9 +365,8 @@ export default function App() {
   // 1. Temporary Occurrence Cancellation (Admin)
   const handleCancelOccurrence = async (courseId: string, date: string, reason: string): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/timetable/${courseId}/cancel-occurrence`, {
+      const res = await authFetch(`/api/timetable/${courseId}/cancel-occurrence`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, reason })
       });
       if (res.ok) {
@@ -345,9 +426,8 @@ export default function App() {
     }
   ): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/timetable/${courseId}/reschedule-occurrence`, {
+      const res = await authFetch(`/api/timetable/${courseId}/reschedule-occurrence`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(details)
       });
       if (res.ok) {
@@ -405,9 +485,8 @@ export default function App() {
   // 3. Restore Specific Occurrence
   const handleRestoreOccurrence = async (courseId: string, date: string): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/timetable/${courseId}/restore-occurrence`, {
+      const res = await authFetch(`/api/timetable/${courseId}/restore-occurrence`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date })
       });
       if (res.ok) {
@@ -441,7 +520,7 @@ export default function App() {
   // 4. Permanent Course Deletion Everywhere
   const handleDeleteCoursePermanent = async (courseId: string): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/timetable/${courseId}`, {
+      const res = await authFetch(`/api/timetable/${courseId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -465,7 +544,7 @@ export default function App() {
   // Duplicate course (Admin)
   const handleDuplicateCourse = async (courseId: string): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/timetable/${courseId}/duplicate`, {
+      const res = await authFetch(`/api/timetable/${courseId}/duplicate`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -510,9 +589,8 @@ export default function App() {
   // Add custom field definition
   const handleAddCustomField = async (field: Omit<CustomFieldDefinition, 'id'>): Promise<boolean> => {
     try {
-      const res = await fetch('/api/custom-fields', {
+      const res = await authFetch('/api/custom-fields', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(field)
       });
       if (res.ok) {
@@ -532,13 +610,12 @@ export default function App() {
     }
   };
 
-  // Task Operations (Strictly Lightweight Personal Tasks)
+  // Task Operations (Strictly Lightweight Personal Tasks with SEC-02 Ownership Scoping)
   const handleSaveTask = async (taskData: Omit<PersonalTask, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
     if (taskData.id) {
       try {
-        const res = await fetch(`/api/tasks/${taskData.id}`, {
+        const res = await authFetch(`/api/tasks/${taskData.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(taskData)
         });
         if (res.ok) {
@@ -558,9 +635,8 @@ export default function App() {
       showToast('Saved Locally', `Task updated in local cache.`);
     } else {
       try {
-        const res = await fetch('/api/tasks', {
+        const res = await authFetch('/api/tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(taskData)
         });
         if (res.ok) {
@@ -590,9 +666,8 @@ export default function App() {
 
   const handleUpdateTaskStatus = async (taskId: string, updates: Partial<PersonalTask>) => {
     try {
-      await fetch(`/api/tasks/${taskId}`, {
+      await authFetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
     } catch {
@@ -606,7 +681,7 @@ export default function App() {
 
   const handleDeleteTask = async (taskId: string) => {
     try {
-      await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+      await authFetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
     } catch {
       // ignore
     }
@@ -616,13 +691,12 @@ export default function App() {
     showToast('Task Removed', 'Activity deleted from schedule.');
   };
 
-  // Notes Operations
+  // Notes Operations (SEC-02 Scoped & SEC-04 Document Attachment Security)
   const handleSaveNote = async (noteData: Omit<SessionNote, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
     if (noteData.id) {
       try {
-        const res = await fetch(`/api/notes/${noteData.id}`, {
+        const res = await authFetch(`/api/notes/${noteData.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(noteData)
         });
         if (res.ok) {
@@ -642,9 +716,8 @@ export default function App() {
       showToast('Saved Locally', 'Note updated in local cache.');
     } else {
       try {
-        const res = await fetch('/api/notes', {
+        const res = await authFetch('/api/notes', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(noteData)
         });
         if (res.ok) {
@@ -673,7 +746,7 @@ export default function App() {
 
   const handleDeleteNote = async (noteId: string) => {
     try {
-      await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+      await authFetch(`/api/notes/${noteId}`, { method: 'DELETE' });
     } catch {
       // ignore
     }
@@ -724,7 +797,7 @@ export default function App() {
       {/* Top Navigation Bar adhering to Top Bar Contract */}
       <Navbar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         unreadCount={unreadCount}
         user={user}
         currentTheme={globalTheme}
@@ -746,7 +819,7 @@ export default function App() {
             onTriggerTestReminder={handleTriggerSpecificReminder}
             onOpenNoteModal={(note, courseCode) => setNoteModalState({ isOpen: true, note, courseCode })}
             onOpenTaskModal={(task) => setTaskModalState({ isOpen: true, task })}
-            onNavigateTab={setActiveTab}
+            onNavigateTab={handleTabChange}
           />
         )}
 
@@ -809,6 +882,8 @@ export default function App() {
             tasks={tasks}
             customFields={customFields}
             currentTheme={globalTheme}
+            user={user}
+            onSwitchRole={handleSwitchRole}
             onUpdateGlobalTheme={handleUpdateGlobalTheme}
             onAddCourse={handleAddCourse}
             onEditCourse={handleEditCourse}
@@ -834,6 +909,7 @@ export default function App() {
           courseCode={activeRingingAlarm.courseCode}
           venue={activeRingingAlarm.venue}
           timeSlot={activeRingingAlarm.timeSlot}
+          spokenAnnouncement={activeRingingAlarm.spokenAnnouncement}
           durationSeconds={preferences.alarmDurationSeconds || 10}
           onDismiss={dismissActiveAlarm}
         />
@@ -899,7 +975,7 @@ export default function App() {
       {/* Mobile Ergonomic Bottom Tab Bar */}
       <MobileBottomBar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         unreadCount={unreadCount}
       />
 

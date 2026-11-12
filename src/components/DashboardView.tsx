@@ -136,19 +136,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     ? 'Good afternoon! 👋' 
     : 'Good evening! 🌙';
 
-  const dateFormatted = currentTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
-
-  const timeFormatted = currentTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  });
-
   return (
     <div className="space-y-8 animate-in fade-in">
       
@@ -172,22 +159,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Your time, your plans, your progress — all in one place. <strong>Smart Remind</strong> is actively managing your schedule with automated background reminders and audible alarms.
             </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 font-mono text-right">
-              <span className="text-[11px] text-slate-400 block">{dateFormatted}</span>
-              <span className="text-xl font-bold text-cyan-400 block mt-0.5 tabular-nums">{timeFormatted}</span>
-            </div>
-
-            <button
-              onClick={() => onTriggerTestReminder()}
-              className="px-4 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-950/40"
-              title="Test the ~10-second audible alarm sequence with dismiss controls"
-            >
-              <Bell className="w-4 h-4 animate-bounce" />
-              <span>Test 10s Alarm</span>
-            </button>
           </div>
         </div>
       </section>

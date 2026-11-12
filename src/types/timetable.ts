@@ -113,6 +113,7 @@ export interface PersonalTask {
   };
   customFields?: Record<string, string | number | boolean | string[]>;
   courseId?: string; // optional link to a course
+  userId?: string; // owner of this task
   createdAt: string;
   updatedAt: string;
 }
@@ -120,7 +121,7 @@ export interface PersonalTask {
 export interface SupportingDocument {
   id: string;
   name: string;
-  type: 'pdf' | 'image' | 'doc';
+  type: 'pdf' | 'image' | 'doc' | 'audio';
   mimeType: string;
   size: number;
   sizeFormatted: string; // e.g. "1.4 MB"
@@ -130,6 +131,8 @@ export interface SupportingDocument {
 
 export interface SessionNote {
   id: string;
+  userId?: string; // author/owner of note
+  isPublic?: boolean; // whether other students can view
   timetableEntryId?: string;
   courseCode?: string;
   sessionDate?: string; // "YYYY-MM-DD"
@@ -194,6 +197,8 @@ export interface NotificationPreferences {
   autoQuietHours: boolean;
   quietStart: string;
   quietEnd: string;
+  voiceAnnouncementEnabled?: boolean;
+  voiceSpeechRate?: number; // 0.8 to 1.3, default 1.0
 }
 
 export interface UserProfile {

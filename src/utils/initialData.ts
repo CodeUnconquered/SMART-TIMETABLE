@@ -522,5 +522,7 @@ export const DEFAULT_PREFERENCES: NotificationPreferences = {
   timezone: 'Africa/Nairobi',
   autoQuietHours: false,
   quietStart: '22:00',
-  quietEnd: '06:00'
+  quietEnd: '06:00',
+  voiceAnnouncementEnabled: true,
+  voiceSpeechRate: 1.0
 };

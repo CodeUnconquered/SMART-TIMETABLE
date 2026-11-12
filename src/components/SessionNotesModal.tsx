@@ -15,10 +15,13 @@ import {
   CheckSquare, 
   Search, 
   Clock, 
-  MapPin 
+  MapPin,
+  Mic,
+  Volume2
 } from 'lucide-react';
 import { SessionNote, SupportingDocument } from '../types/timetable';
 import { DocumentViewerModal } from './DocumentViewerModal';
+import { VoiceNoteRecorder } from './VoiceNoteRecorder';
 
 interface SessionNotesModalProps {
   isOpen: boolean;
@@ -69,6 +72,9 @@ export const SessionNotesModal: React.FC<SessionNotesModalProps> = ({
 
   // Active document preview modal state
   const [previewDoc, setPreviewDoc] = useState<SupportingDocument | null>(null);
+
+  // Voice note recorder and speech-to-text panel toggle
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
 
   useEffect(() => {
     if (note) {
@@ -123,6 +129,7 @@ export const SessionNotesModal: React.FC<SessionNotesModalProps> = ({
         let type: SupportingDocument['type'] = 'doc';
         if (file.type.includes('pdf')) type = 'pdf';
         else if (file.type.startsWith('image/')) type = 'image';
+        else if (file.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|webm|aac)$/i.test(file.name)) type = 'audio';
 
         const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
         const sizeFormatted = file.size > 1024 * 1024 ? `${sizeInMb} MB` : `${Math.round(file.size / 1024)} KB`;
@@ -343,41 +350,81 @@ export const SessionNotesModal: React.FC<SessionNotesModalProps> = ({
             </div>
 
             {/* Detailed Notes Body */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                <span>Detailed Learning Notes (What you learned, theorems, proofs, code) <span className="text-rose-400">*</span></span>
-                <span className="text-[11px] font-mono text-slate-400">{content.length} chars</span>
-              </label>
+            <div className="space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-xs font-semibold text-slate-300">
+                  Detailed Learning Notes (What you learned, theorems, proofs, code) <span className="text-rose-400">*</span>
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowVoiceRecorder(prev => !prev)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      showVoiceRecorder
+                        ? 'bg-rose-950/90 text-rose-300 border border-rose-800 ring-1 ring-rose-500/40'
+                        : 'bg-cyan-950/90 text-cyan-300 hover:bg-cyan-900 border border-cyan-700/60 shadow-sm'
+                    }`}
+                    title="Speak your session notes and automatically transcribe voice into written text"
+                  >
+                    <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                    <span>{showVoiceRecorder ? 'Close Voice Recorder' : 'Voice Recorder & Transcribe'}</span>
+                  </button>
+                  <span className="text-[11px] font-mono text-slate-400">{content.length} chars</span>
+                </div>
+              </div>
+
+              {/* Interactive Voice Recorder & Speech-to-Text Transcriber */}
+              {showVoiceRecorder && (
+                <VoiceNoteRecorder
+                  courseCode={courseCode}
+                  topicTitle={title}
+                  onApplyTranscription={(transcribedText, mode) => {
+                    if (mode === 'append') {
+                      setContent(prev => prev ? `${prev}\n\n${transcribedText}` : transcribedText);
+                    } else if (mode === 'replace') {
+                      setContent(transcribedText);
+                    } else if (mode === 'summary') {
+                      setSummary(transcribedText);
+                    }
+                  }}
+                  onAttachAudio={(audioDoc) => {
+                    setDocuments(prev => [...prev, audioDoc]);
+                  }}
+                  onClose={() => setShowVoiceRecorder(false)}
+                />
+              )}
+
               <textarea
                 required
                 rows={6}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Write detailed notes from the lecture, algorithms, steps, code snippets..."
+                placeholder="Write detailed notes from the lecture, algorithms, steps, code snippets, or click 'Voice Recorder & Transcribe' above to speak your notes..."
                 className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-xl p-3.5 text-xs sm:text-sm focus:outline-none focus:border-cyan-500 font-mono leading-relaxed resize-y"
               />
             </div>
 
-            {/* SUPPORTING DOCUMENTS SECTION (PDF, Images, Slides) */}
+            {/* SUPPORTING DOCUMENTS SECTION (PDF, Images, Slides, Voice Audio) */}
             <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <label className="text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
                     <Paperclip className="w-3.5 h-3.5" />
-                    <span>Supporting Learning Documents (PDF, Slides, Images)</span>
+                    <span>Supporting Learning Documents (PDF, Slides, Images, Voice Recordings)</span>
                   </label>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Attach lab PDFs, lecture slides, diagrams, or tutorial sheets. View directly in-browser.
+                    Attach lab PDFs, lecture slides, diagrams, tutorial sheets, or recorded voice notes. View or listen directly in-browser.
                   </p>
                 </div>
 
-                <label className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors cursor-pointer shrink-0">
+                <label className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-cyan-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors cursor-pointer shrink-0">
                   <Plus className="w-3.5 h-3.5" />
                   <span>Attach Document</span>
                   <input
                     type="file"
                     multiple
-                    accept=".pdf,image/*,.doc,.docx,.txt"
+                    accept=".pdf,image/*,.doc,.docx,.txt,audio/*"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
@@ -386,7 +433,7 @@ export const SessionNotesModal: React.FC<SessionNotesModalProps> = ({
 
               {documents.length === 0 ? (
                 <div className="p-3 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
-                  No learning documents attached yet. Click "Attach Document" to add PDFs or slide images.
+                  No learning documents or voice audio attached yet. Click "Attach Document" or use "Voice Recorder" to record lecture audio.
                 </div>
               ) : (
                 <div className="space-y-2 pt-1">
@@ -396,10 +443,16 @@ export const SessionNotesModal: React.FC<SessionNotesModalProps> = ({
                       className="p-2.5 rounded-xl bg-slate-900 border border-slate-850 flex items-center justify-between gap-3 text-xs"
                     >
                       <div className="flex items-center gap-2.5 truncate">
-                        <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                        {doc.type === 'audio' || doc.mimeType?.startsWith('audio/') ? (
+                          <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                        )}
                         <div className="truncate">
                           <span className="font-semibold text-white block truncate">{doc.name}</span>
-                          <span className="text-[10px] font-mono text-slate-400">{doc.sizeFormatted}</span>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {doc.sizeFormatted} · {doc.type === 'audio' ? 'Voice Recording' : doc.type.toUpperCase()}
+                          </span>
                         </div>
                       </div>
 
@@ -410,7 +463,7 @@ export const SessionNotesModal: React.FC<SessionNotesModalProps> = ({
                           className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span>View in Browser</span>
+                          <span>{doc.type === 'audio' ? 'Play Audio' : 'View in Browser'}</span>
                         </button>
 
                         <button
